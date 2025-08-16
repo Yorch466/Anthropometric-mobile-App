@@ -3,13 +3,14 @@ export interface User {
   isAnonymous: boolean
 }
 
-export interface Goals {
-  run_s: number // seconds for 3200m
-  push: number // push-ups count
-  sit: number // sit-ups count
+// src/types.ts
+export type Goals = {
+  run_s: number
+  push: number
+  sit: number
 }
 
-export interface Constraints {
+export type Constraints = {
   vegan: boolean
   lactose_free: boolean
   gluten_free: boolean
@@ -17,6 +18,22 @@ export interface Constraints {
   inj_shoulder: boolean
   inj_back: boolean
 }
+
+/**
+ * Si usas React Navigation con Native Stack, define aquí tu RootStackParamList.
+ * Ajusta nombres de pantallas y params a tu app real.
+ */
+export type RootStackParamList = {
+  Auth: undefined
+  Home: undefined
+  Upload: undefined
+  Results: {
+    uploadId: string
+    predId: string
+    planId: string
+  }
+}
+
 
 export interface Upload {
   id: string

@@ -7,6 +7,10 @@
     "icon": "./assets/icon.png",
     "scheme": "anthroapp",
     "userInterfaceStyle": "light",
+    "extra": {
+      "PROCESS_URL": "http://192.168.1.11:8000"
+    },
+    
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",

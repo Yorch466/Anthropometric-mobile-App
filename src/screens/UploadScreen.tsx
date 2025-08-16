@@ -12,6 +12,8 @@ import { createUpload } from "../lib/firestore"
 import { callProcess } from "../lib/api"
 import { useUploadStatus } from "../hooks/useUploadStatus"
 import type { RootStackParamList, Goals, Constraints } from "../types"
+import { getCurrentUserId } from "../hooks/auth" // ajusta la ruta si tu estructura cambia
+
 
 type UploadNavigationProp = NativeStackNavigationProp<RootStackParamList, "Upload">
 
@@ -129,6 +131,26 @@ export const UploadScreen: React.FC = () => {
         goals,
         constraints,
       })
+
+    //   const response = await callProcess({
+    //   uploadId,
+    //   image_url: imageUrl,
+    //   sex,
+    //   goals,
+    //   constraints,
+    // })
+
+    // Si tu backend AÚN no actualiza Firestore (lo que escucha useUploadStatus),
+    // podés navegar con la respuesta directamente:
+    // if (response?.predId && response?.planId) {
+    //   navigation.navigate("Results", {
+    //     uploadId,
+    //     predId: response.predId,
+    //     planId: response.planId,
+    //   })
+    //   setProcessing(false)
+    //   setCurrentUploadId(null)
+    // }
 
       // The useUploadStatus hook will handle navigation when processing is complete
     } catch (error) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import type { Upload } from "../types"
-import { subscribeToUpload, getCurrentUserId } from "../lib/firebase"
+import { subscribeToUpload, getCurrentUserId } from "../hooks/auth"
 
 export const useUploadStatus = (uploadId: string | null) => {
   const [upload, setUpload] = useState<Upload | null>(null)
