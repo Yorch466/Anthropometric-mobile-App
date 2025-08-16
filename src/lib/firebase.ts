@@ -1,10 +1,8 @@
-import { initializeApp } from "firebase/app"
-import { getAuth, signInAnonymously, type Auth, type User } from "firebase/auth"
-import { getFirestore, type Firestore } from "firebase/firestore"
-import { getStorage, type FirebaseStorage } from "firebase/storage"
-import { getAnalytics } from "firebase/analytics"
+import { initializeApp, getApps } from 'firebase/app';
+import { initializeAuth, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// TODO: Replace with your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBVBzX784D0z0GdhgFgcchr8KzG8h53dLo",
   authDomain: "antrophometric-medition.firebaseapp.com",
@@ -15,35 +13,10 @@ const firebaseConfig = {
   measurementId: "G-9YTXS0PZPW"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-// Initialize services
-export const auth: Auth = getAuth(app)
-export const db: Firestore = getFirestore(app)
-export const storage: FirebaseStorage = getStorage(app)
-
-// Ensure anonymous sign-in
-export const ensureAnonSignIn = async (): Promise<User> => {
-  const currentUser = auth.currentUser
-
-  if (currentUser) {
-    return currentUser
-  }
-
-  try {
-    const result = await signInAnonymously(auth)
-    return result.user
-  } catch (error) {
-    console.error("Anonymous sign-in failed:", error)
-    throw error
-  }
-}
-
-// Helper to get current user ID
-export const getCurrentUserId = (): string | null => {
-  return auth.currentUser?.uid || null
-}
-
-export { subscribeToUpload } from "./firestore"
+export const auth = initializeAuth(app); // 👈 sin persistencia
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export { GoogleAuthProvider, signInWithCredential }
+;

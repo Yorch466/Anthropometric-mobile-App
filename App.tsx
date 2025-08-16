@@ -1,7 +1,7 @@
 "use client"
 import { StatusBar } from "expo-status-bar"
 import { PaperProvider, DefaultTheme } from "react-native-paper"
-import { AuthScreen } from "./src/screens/AuthScreen"
+import AuthScreen from "@/screens/AuthScreen";
 import { AppNavigator } from "./src/navigation/AppNavigator"
 import { useAuth } from "./src/hooks/useAuth"
 import { View, StyleSheet } from "react-native"

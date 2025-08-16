@@ -1,109 +1,79 @@
-"use client"
+// src/screens/AuthScreen.tsx
+import React, { useState } from "react";
+import { View } from "react-native";
+import { TextInput, Button, Text, Card, HelperText, Divider } from "react-native-paper";
+import { signInEmail, signUpEmail } from "@/lib/emailAuth";
 
-import type React from "react"
-import { useState } from "react"
-import { View, StyleSheet, Alert } from "react-native"
-import { Button, Card, Text } from "react-native-paper"
-import { ensureAnonSignIn } from "../lib/firebase"
+export default function AuthScreen({ navigation }: any) {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const isSignup = mode === "signup";
 
-interface AuthScreenProps {
-  onAuthSuccess: () => void
-}
-
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
-  const [loading, setLoading] = useState(false)
-
-  const handleContinue = async () => {
-    setLoading(true)
+  const onSubmit = async () => {
+    setLoading(true);
     try {
-      await ensureAnonSignIn()
-      onAuthSuccess()
-    } catch (error) {
-      console.error("Authentication failed:", error)
-      Alert.alert("Error", "No se pudo iniciar sesión. Inténtalo de nuevo.")
+      if (isSignup) {
+        await signUpEmail(email.trim(), password, name.trim());
+      } else {
+        await signInEmail(email.trim(), password);
+      }
+      navigation.replace("Home");
+    } catch (e) {
+      console.log(e);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Text variant="headlineMedium" style={styles.title}>
-              Fitness Tracker
-            </Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
-              Analiza tu progreso físico con inteligencia artificial
-            </Text>
-            <Text variant="bodyMedium" style={styles.description}>
-              Sube una foto, completa tus datos y obtén un plan personalizado de entrenamiento y nutrición.
-            </Text>
-          </Card.Content>
-          <Card.Actions style={styles.actions}>
-            <Button
-              mode="contained"
-              onPress={handleContinue}
-              loading={loading}
-              disabled={loading}
-              style={styles.continueButton}
-              contentStyle={styles.buttonContent}
-            >
-              {loading ? "Iniciando..." : "Continuar"}
-            </Button>
-          </Card.Actions>
-        </Card>
-      </View>
-    </View>
-  )
-}
+    <View style={{ padding: 16, gap: 12 }}>
+      <Card mode="elevated" style={{ padding: 16 }}>
+        <Text variant="headlineMedium" style={{ marginBottom: 8 }}>
+          {isSignup ? "Crear cuenta" : "Iniciar sesión"}
+        </Text>
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    padding: 20,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  card: {
-    elevation: 4,
-    borderRadius: 16,
-  },
-  cardContent: {
-    padding: 24,
-    alignItems: "center",
-  },
-  title: {
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: "#4a90e2",
-    marginBottom: 16,
-    textAlign: "center",
-    fontWeight: "600",
-  },
-  description: {
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  actions: {
-    padding: 24,
-    paddingTop: 0,
-  },
-  continueButton: {
-    borderRadius: 12,
-    backgroundColor: "#4a90e2",
-  },
-  buttonContent: {
-    paddingVertical: 8,
-  },
-})
+        {isSignup && (
+          <TextInput
+            label="Nombre"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            style={{ marginBottom: 8 }}
+          />
+        )}
+
+        <TextInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={{ marginBottom: 8 }}
+        />
+
+        <TextInput
+          label="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={{ marginBottom: 8 }}
+        />
+
+        <HelperText type="info">Autenticación con email/contraseña</HelperText>
+
+        <Button mode="contained" onPress={onSubmit} loading={loading} style={{ marginTop: 8 }}>
+          {isSignup ? "Registrarme" : "Entrar"}
+        </Button>
+
+        <Divider style={{ marginVertical: 12 }} />
+
+        <Button onPress={() => setMode(isSignup ? "login" : "signup")} style={{ marginTop: 12 }}>
+          {isSignup ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate"}
+        </Button>
+      </Card>
+    </View>
+  );
+}
