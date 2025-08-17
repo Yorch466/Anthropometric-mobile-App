@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import type { Upload } from "../types"
-import { subscribeToUpload, getCurrentUserId } from "../hooks/auth"
-
+import {getCurrentUserId } from "../hooks/auth"
+import { subscribeToUpload } from "@/lib/uploads"
 export const useUploadStatus = (uploadId: string | null) => {
   const [upload, setUpload] = useState<Upload | null>(null)
   const [loading, setLoading] = useState(true)

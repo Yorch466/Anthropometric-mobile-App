@@ -1,361 +1,195 @@
+// src/screens/DashboardScreen.tsx
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native"
-import { Card, Text, IconButton } from "react-native-paper"
-import { useNavigation } from "@react-navigation/native"
+import React, { useState, useCallback } from "react"
+import { View, StyleSheet, ScrollView } from "react-native"
+import { Card, Text, Chip, Button, IconButton, ActivityIndicator } from "react-native-paper"
+import { useNavigation, useFocusEffect } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
-import type { RootStackParamList } from "../navigation/AppNavigator"
-import { getCurrentUserId } from "../lib/firebase"
-import { getUserUploads, getPrediction, getPlan } from "../lib/firestore"
-import type { Upload, Prediction, Plan } from "../types"
+import type { RootStackParamList } from "@/navigation/AppNavigator"
+import { emiTheme } from "@/theme/emitheme"
+import { getCurrentUserId } from "@/hooks/auth"
+import { getUserUploads, getPrediction, getPlan } from "@/lib/firestore"
+import BottomActionBar from "@/components/BottomActivationBar"
+import type { Upload, Prediction, Plan } from "@/types"
+import { useTheme } from "react-native-paper"
+import type { AppTheme } from "@/theme/emitheme"
 
-type DashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, "Dashboard">
+type Nav = NativeStackNavigationProp<RootStackParamList, "Dashboard">
+const theme = useTheme<AppTheme>()
+
 
 export const DashboardScreen: React.FC = () => {
-  const navigation = useNavigation<DashboardNavigationProp>()
-  const [lastResult, setLastResult] = useState<{
-    upload: Upload
-    prediction: Prediction
-    plan: Plan
-  } | null>(null)
+  const nav = useNavigation<Nav>()
   const [loading, setLoading] = useState(true)
+  const [last, setLast] = useState<{ upload: Upload; prediction: Prediction; plan: Plan } | null>(null)
 
-  useEffect(() => {
-    loadLastResult()
-  }, [])
+  useFocusEffect(useCallback(() => { load(); }, []))
 
-  const loadLastResult = async () => {
+  const load = async () => {
+    setLoading(true)
     try {
-      const userId = getCurrentUserId()
-      if (!userId) return
-
-      const uploads = await getUserUploads(userId, 1)
-      const lastUpload = uploads.find((u) => u.status === "planned")
-
-      if (lastUpload && lastUpload.predId && lastUpload.planId) {
-        const [prediction, plan] = await Promise.all([getPrediction(lastUpload.predId), getPlan(lastUpload.planId)])
-
-        if (prediction && plan) {
-          setLastResult({ upload: lastUpload, prediction, plan })
-        }
-      }
-    } catch (error) {
-      console.error("Error loading last result:", error)
-    } finally {
-      setLoading(false)
-    }
+      const uid = getCurrentUserId()
+      if (!uid) return
+      const { items } = await getUserUploads(uid, 5, null)
+      const ready = items.find(u => (u.status === "planned" || u.status === "completed") && u.predId && u.planId)
+      if (ready?.predId && ready?.planId) {
+        const [pred, plan] = await Promise.all([getPrediction(String(ready.predId)), getPlan(String(ready.planId))])
+        if (pred && plan) setLast({ upload: ready, prediction: pred, plan })
+        else setLast(null)
+      } else setLast(null)
+    } finally { setLoading(false) }
   }
 
-  const handleUploadPhoto = () => {
-    navigation.navigate("Upload")
-  }
-
-  const handleViewHistory = () => {
-    navigation.navigate("History")
-  }
-
-  const handleViewPlan = () => {
-    if (lastResult?.plan) {
-      navigation.navigate("PlanDetail", { planId: lastResult.plan.id })
-    }
-  }
-
-  const handleViewResults = () => {
-    if (lastResult) {
-      navigation.navigate("Results", {
-        uploadId: lastResult.upload.id,
-        predId: lastResult.prediction.id,
-        planId: lastResult.plan.id,
-      })
-    }
-  }
+  const dietTargets = last ? [
+    { k: "kcal", v: last.plan.kcal, u: "" },
+    { k: "Proteína", v: last.plan.protein_g, u: "g" },
+    { k: "Grasas", v: last.plan.fat_g, u: "g" },
+    { k: "Carbs", v: last.plan.carbs_g, u: "g" },
+  ] : []
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text variant="headlineMedium" style={styles.welcomeTitle}>
-            Bienvenido
-          </Text>
-          <Text variant="bodyLarge" style={styles.welcomeSubtitle}>
-            Tu progreso fitness personalizado
-          </Text>
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Header */}
+        <View style={styles.topBar}>
+          <Text variant="headlineSmall" style={styles.title}>Home — EMI Fitness</Text>
+          <IconButton icon="bell-outline" onPress={() => {}} />
         </View>
 
-        {/* Last Result Card */}
-        {lastResult ? (
-          <TouchableOpacity onPress={handleViewResults} activeOpacity={0.7}>
-            <Card style={styles.resultCard}>
-              <Card.Content>
-                <View style={styles.resultHeader}>
-                  <Text variant="titleLarge" style={styles.resultTitle}>
-                    Último Análisis
-                  </Text>
-                  <IconButton icon="chevron-right" size={20} />
+        {/* Última medición */}
+        <Card style={styles.heroCard} mode="elevated">
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.heroTitle}>Última medición</Text>
+            {loading ? (
+              <View style={styles.centerRow}><ActivityIndicator /></View>
+            ) : last ? (
+              <View style={styles.metricsRow}>
+                <View style={styles.metric}>
+                  <Text variant="headlineSmall" style={styles.metricValue}>{last.prediction.height_m.toFixed(2)}m</Text>
+                  <Text style={styles.metricLabel}>Altura</Text>
                 </View>
-                <View style={styles.resultMetrics}>
-                  <View style={styles.metric}>
-                    <Text variant="headlineSmall" style={styles.metricValue}>
-                      {lastResult.prediction.height_m.toFixed(2)}m
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.metricLabel}>
-                      Altura
-                    </Text>
-                  </View>
-                  <View style={styles.metric}>
-                    <Text variant="headlineSmall" style={styles.metricValue}>
-                      {lastResult.prediction.weight_kg.toFixed(1)}kg
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.metricLabel}>
-                      Peso
-                    </Text>
-                  </View>
-                  <View style={styles.metric}>
-                    <Text variant="headlineSmall" style={styles.metricValue}>
-                      {lastResult.prediction.class_name}
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.metricLabel}>
-                      Clasificación
-                    </Text>
-                  </View>
+                <View style={styles.metric}>
+                  <Text variant="headlineSmall" style={styles.metricValue}>{last.prediction.weight_kg.toFixed(1)}kg</Text>
+                  <Text style={styles.metricLabel}>Peso</Text>
                 </View>
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
-        ) : (
-          <Card style={styles.emptyCard}>
-            <Card.Content style={styles.emptyContent}>
-              <IconButton icon="camera-plus" size={48} iconColor="#4a90e2" />
-              <Text variant="titleMedium" style={styles.emptyTitle}>
-                Sin análisis previos
-              </Text>
-              <Text variant="bodyMedium" style={styles.emptySubtitle}>
-                Sube tu primera foto para comenzar
-              </Text>
-            </Card.Content>
-          </Card>
-        )}
+                <View style={styles.metric}>
+                  <Text variant="headlineSmall" style={styles.metricValue}>{last.prediction.class_name}</Text>
+                  <Text style={styles.metricLabel}>Estado</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={{ color: emiTheme.colors.onSurface }}>Aún no tienes mediciones.</Text>
+            )}
 
-        {/* Quick Actions */}
-        <View style={styles.actionsSection}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            Acciones Rápidas
-          </Text>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleUploadPhoto}>
-              <Card style={styles.actionCard}>
-                <Card.Content style={styles.actionContent}>
-                  <IconButton icon="camera-plus" size={32} iconColor="#4a90e2" />
-                  <Text variant="titleMedium" style={styles.actionText}>
-                    Subir Foto
-                  </Text>
-                </Card.Content>
-              </Card>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleViewHistory}>
-              <Card style={styles.actionCard}>
-                <Card.Content style={styles.actionContent}>
-                  <IconButton icon="history" size={32} iconColor="#4a90e2" />
-                  <Text variant="titleMedium" style={styles.actionText}>
-                    Mi Historial
-                  </Text>
-                </Card.Content>
-              </Card>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleViewPlan} disabled={!lastResult}>
-              <Card style={[styles.actionCard, !lastResult && styles.disabledCard]}>
-                <Card.Content style={styles.actionContent}>
-                  <IconButton icon="clipboard-text" size={32} iconColor={lastResult ? "#4a90e2" : "#ccc"} />
-                  <Text variant="titleMedium" style={[styles.actionText, !lastResult && styles.disabledText]}>
-                    Mi Plan
-                  </Text>
-                </Card.Content>
-              </Card>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Mini Widgets */}
-        {lastResult && (
-          <View style={styles.widgetsSection}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              Resumen Diario
-            </Text>
-            <View style={styles.widgets}>
-              <Card style={styles.widget}>
-                <Card.Content style={styles.widgetContent}>
-                  <IconButton icon="fire" size={24} iconColor="#ff6b35" />
-                  <Text variant="headlineSmall" style={styles.widgetValue}>
-                    {lastResult.plan.kcal}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.widgetLabel}>
-                    Calorías diarias
-                  </Text>
-                </Card.Content>
-              </Card>
-
-              <Card style={styles.widget}>
-                <Card.Content style={styles.widgetContent}>
-                  <IconButton icon="dumbbell" size={24} iconColor="#50c878" />
-                  <Text variant="headlineSmall" style={styles.widgetValue}>
-                    {lastResult.plan.strength_per_wk}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.widgetLabel}>
-                    Sesiones/semana
-                  </Text>
-                </Card.Content>
-              </Card>
-
-              <Card style={styles.widget}>
-                <Card.Content style={styles.widgetContent}>
-                  <IconButton icon="run" size={24} iconColor="#4a90e2" />
-                  <Text variant="headlineSmall" style={styles.widgetValue}>
-                    {lastResult.plan.runs_per_wk}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.widgetLabel}>
-                    Carreras/semana
-                  </Text>
-                </Card.Content>
-              </Card>
+            <View style={styles.heroActions}>
+              <Button mode="contained" onPress={() => nav.navigate("Upload")}>Subir foto</Button>
+              {last && (
+                <Button mode="outlined" onPress={() => nav.navigate("Results", {
+                  uploadId: last.upload.id, predId: last.prediction.id, planId: last.plan.id
+                })}>
+                  Ver resultados
+                </Button>
+              )}
             </View>
-          </View>
-        )}
-      </View>
-    </ScrollView>
+          </Card.Content>
+        </Card>
+
+        {/* Chips “cosas extra” */}
+        <View style={styles.chipsRow}>
+          <Chip onPress={() => {}} style={styles.chip} textStyle={styles.chipText}>Principiante</Chip>
+          <Chip onPress={() => {}} style={styles.chip} textStyle={styles.chipText}>Bajar de peso</Chip>
+          <Chip onPress={() => {}} style={styles.chip} textStyle={styles.chipText}>Fuerza</Chip>
+        </View>
+
+        {/* Rutina superficial */}
+        <Card style={styles.blockCard}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.blockTitle}>Rutina (resumen)</Text>
+            {last ? (
+              <View style={{ gap: 8 }}>
+                {last.plan.training.slice(0, 3).map((d, i) => (
+                  <View key={i} style={styles.listRow}>
+                    <Text style={styles.listBullet}>•</Text>
+                    <Text style={styles.listText}>
+                      {d.day}: {d.sessions.map((s: any) => s.type).join(" · ")}
+                    </Text>
+                  </View>
+                ))}
+                <Button onPress={() => nav.navigate("PlanDetail", { planId: last.plan.id })}>
+                  Ver plan completo
+                </Button>
+              </View>
+            ) : (
+              <Text style={{ color: theme.custom.muted }}>Sube una foto para obtener tu rutina.</Text>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Dieta superficial */}
+        <Card style={styles.blockCard}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.blockTitle}>Dieta (resumen)</Text>
+            {last ? (
+              <>
+                <View style={styles.targetsRow}>
+                  {dietTargets.map(t => (
+                    <View key={t.k} style={styles.targetPill}>
+                      <Text style={styles.targetVal}>{t.v}{t.u}</Text>
+                      <Text style={styles.targetLabel}>{t.k}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={{ gap: 8, marginTop: 8 }}>
+                  {last.plan.meals_example.slice(0, 2).map((m, i) => (
+                    <View key={i} style={styles.listRow}>
+                      <Text style={styles.listBullet}>•</Text>
+                      <Text style={styles.listText}>{m.title} — {m.kcal} kcal</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={{ color: theme.custom.muted }}>Aún no hay dieta generada.</Text>
+            )}
+          </Card.Content>
+        </Card>
+
+        <View style={{ height: 70 }} />
+      </ScrollView>
+
+      <BottomActionBar />
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  content: {
-    padding: 20,
-  },
-  welcomeSection: {
-    marginBottom: 24,
-  },
-  welcomeTitle: {
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    color: "#666",
-  },
-  resultCard: {
-    marginBottom: 24,
-    elevation: 2,
-    borderRadius: 16,
-  },
-  resultHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  resultTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-  },
-  resultMetrics: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  metric: {
-    alignItems: "center",
-  },
-  metricValue: {
-    fontWeight: "bold",
-    color: "#4a90e2",
-    marginBottom: 4,
-  },
-  metricLabel: {
-    color: "#666",
-  },
-  emptyCard: {
-    marginBottom: 24,
-    elevation: 2,
-    borderRadius: 16,
-  },
-  emptyContent: {
-    alignItems: "center",
-    paddingVertical: 32,
-  },
-  emptyTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    color: "#666",
-    textAlign: "center",
-  },
-  actionsSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 16,
-  },
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  actionCard: {
-    elevation: 2,
-    borderRadius: 12,
-  },
-  actionContent: {
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  actionText: {
-    fontWeight: "500",
-    color: "#1a1a1a",
-    textAlign: "center",
-  },
-  disabledCard: {
-    opacity: 0.5,
-  },
-  disabledText: {
-    color: "#ccc",
-  },
-  widgetsSection: {
-    marginBottom: 24,
-  },
-  widgets: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  widget: {
-    flex: 1,
-    elevation: 2,
-    borderRadius: 12,
-  },
-  widgetContent: {
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  widgetValue: {
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  widgetLabel: {
-    color: "#666",
-    textAlign: "center",
-  },
+  screen: { flex: 1, backgroundColor: emiTheme.colors.background },
+  scroll: { padding: 16 },
+  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  title: { color: emiTheme.colors.primary, fontWeight: "700" },
+
+  heroCard: { borderRadius: 16, marginTop: 8 },
+  heroTitle: { marginBottom: 12, fontWeight: "700" },
+  metricsRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  metric: { flex: 1, backgroundColor: emiTheme.colors.surfaceVariant, borderRadius: 12, padding: 12, alignItems: "center" },
+  metricValue: { color: emiTheme.colors.primary, fontWeight: "800" },
+  metricLabel: { color: theme.custom.muted, marginTop: 2, fontSize: 12 },
+  centerRow: { alignItems: "center", justifyContent: "center" },
+  heroActions: { flexDirection: "row", gap: 12, marginTop: 12 },
+
+  chipsRow: { flexDirection: "row", gap: 8, marginTop: 14, marginBottom: 8 },
+  chip: { backgroundColor: emiTheme.colors.primary, borderRadius: 20 },
+  chipText: { color: "#fff" },
+
+  blockCard: { borderRadius: 16, marginTop: 12 },
+  blockTitle: { fontWeight: "700", marginBottom: 8 },
+  listRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  listBullet: { color: emiTheme.colors.secondary, marginTop: 2 },
+  listText: { flex: 1, color: emiTheme.colors.onSurface },
+
+  targetsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  targetPill: { backgroundColor: "#fff7e0", borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: "#F1E0A0" },
+  targetVal: { fontWeight: "700", color: emiTheme.colors.secondary },
+  targetLabel: { fontSize: 12, color: theme.custom.muted },
 })

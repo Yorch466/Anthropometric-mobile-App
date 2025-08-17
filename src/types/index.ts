@@ -41,10 +41,10 @@ export interface Upload {
   sex: number // 0=female, 1=male
   goals: Goals
   constraints: Constraints
-  status: "pending" | "predicted" | "planned" | "error"
+  status: "pending" | "predicted" | "planned" | "error" | "completed" 
   predId?: string
   planId?: string
-  createdAt: Date
+  createdAt: any // Timestamp de Firestore
 }
 
 export interface Prediction {
@@ -55,7 +55,7 @@ export interface Prediction {
   weight_kg: number
   class_idx: number
   class_name: string
-  createdAt: Date
+  createdAt: any // Timestamp de Firestore
 }
 
 export interface Session {
@@ -91,7 +91,7 @@ export interface Plan {
   training: TrainingDay[]
   meals_example: MealExample[]
   constraints?: Constraints
-  createdAt: Date
+  createdAt: any
 }
 
 export interface ProcessPayload {
@@ -101,3 +101,5 @@ export interface ProcessPayload {
   goals: Goals
   constraints: Constraints
 }
+
+

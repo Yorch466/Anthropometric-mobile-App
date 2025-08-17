@@ -1,43 +1,57 @@
+// App.tsx
 "use client"
-import { StatusBar } from "expo-status-bar"
-import { PaperProvider, DefaultTheme } from "react-native-paper"
-import AuthScreen from "@/screens/AuthScreen";
-import { AppNavigator } from "./src/navigation/AppNavigator"
-import { useAuth } from "./src/hooks/useAuth"
-import { View, StyleSheet } from "react-native"
-import { ActivityIndicator } from "react-native-paper"
 
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: "#4a90e2",
-    secondary: "#50c878",
-    surface: "#ffffff",
-    background: "#f5f5f5",
-    onSurface: "#1a1a1a",
-    onBackground: "#1a1a1a",
-  },
-}
+import React, { useEffect, useState } from "react"
+import { View, StyleSheet } from "react-native"
+import { StatusBar } from "expo-status-bar"
+import { PaperProvider, ActivityIndicator } from "react-native-paper"
+import { SafeAreaProvider } from "react-native-safe-area-context"
+
+import { emiTheme } from "@/theme/emitheme" // tu tema (sin 'muted' en colors de MD3)
+import { AppNavigator } from "@/navigation/AppNavigator"
+import AuthScreen from "@/screens/AuthScreen"
+
+import { subscribeAuth } from "@/hooks/auth"      // 🔸 viene de TU auth.ts
+import { upsertUserProfile } from "@/lib/userProfile"
 
 export default function App() {
-  const { user, loading, isAuthenticated } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    // Nos suscribimos a Firebase Auth
+    const unsub = subscribeAuth(async (user) => {
+      setIsAuthenticated(!!user)
+      setLoading(false)
+      if (user) {
+        try {
+          // Por si acaso (ya lo haces en login/signup, pero no estorba)
+          await upsertUserProfile(user)
+        } catch {}
+      }
+    })
+    return unsub
+  }, [])
 
   if (loading) {
     return (
-      <PaperProvider theme={theme}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4a90e2" />
-        </View>
-        <StatusBar style="auto" />
+      <PaperProvider theme={emiTheme}>
+        <SafeAreaProvider>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" />
+          </View>
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
       </PaperProvider>
     )
   }
 
   return (
-    <PaperProvider theme={theme}>
-      {isAuthenticated ? <AppNavigator /> : <AuthScreen onAuthSuccess={() => {}} />}
-      <StatusBar style="auto" />
+    <PaperProvider theme={emiTheme}>
+      <SafeAreaProvider>
+        {isAuthenticated ? <AppNavigator /> : <AuthScreen />}
+        <StatusBar style={isAuthenticated ? "light" : "dark"} />
+      </SafeAreaProvider>
     </PaperProvider>
   )
 }
@@ -47,6 +61,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
   },
 })
