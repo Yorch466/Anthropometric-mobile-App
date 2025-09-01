@@ -24,15 +24,15 @@ export type Constraints = {
  * Ajusta nombres de pantallas y params a tu app real.
  */
 export type RootStackParamList = {
-  Auth: undefined
-  Home: undefined
+  Dashboard: undefined
   Upload: undefined
-  Results: {
-    uploadId: string
-    predId: string
-    planId: string
-  }
+  Results: { uploadId: string; predId: string; planId: string }
+  PlanDetail: { planId: string }
+  History: undefined
+  PlanDetailPanel: { planId: string } // si de verdad lo usas
+  AuthScreen: undefined
 }
+
 
 
 export interface Upload {
@@ -62,6 +62,9 @@ export interface Session {
   type: "run" | "strength" | "core"
   minutes?: number
   sets?: number
+  exercises?: string[]
+  pushups_sets?: number
+  situps_sets?: number
 }
 
 export interface TrainingDay {

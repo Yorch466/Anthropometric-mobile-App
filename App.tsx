@@ -1,65 +1,26 @@
 // App.tsx
 "use client"
-
-import React, { useEffect, useState } from "react"
-import { View, StyleSheet } from "react-native"
+import React from "react"
 import { StatusBar } from "expo-status-bar"
-import { PaperProvider, ActivityIndicator } from "react-native-paper"
-import { SafeAreaProvider } from "react-native-safe-area-context"
+import { PaperProvider, MD3LightTheme } from "react-native-paper"
+import RootNavigator from "@/navigation/AppNavigator"
 
-import { emiTheme } from "@/theme/emitheme" // tu tema (sin 'muted' en colors de MD3)
-import { AppNavigator } from "@/navigation/AppNavigator"
-import AuthScreen from "@/screens/AuthScreen"
-
-import { subscribeAuth } from "@/hooks/auth"      // 🔸 viene de TU auth.ts
-import { upsertUserProfile } from "@/lib/userProfile"
+const theme = {
+  ...MD3LightTheme,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: "#0052a5",     // Azul EMI
+    secondary: "#e9b400",   // Amarillo EMI
+    background: "#f5f7fb",
+    surface: "#ffffff",
+  },
+}
 
 export default function App() {
-  const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-
-  useEffect(() => {
-    // Nos suscribimos a Firebase Auth
-    const unsub = subscribeAuth(async (user) => {
-      setIsAuthenticated(!!user)
-      setLoading(false)
-      if (user) {
-        try {
-          // Por si acaso (ya lo haces en login/signup, pero no estorba)
-          await upsertUserProfile(user)
-        } catch {}
-      }
-    })
-    return unsub
-  }, [])
-
-  if (loading) {
-    return (
-      <PaperProvider theme={emiTheme}>
-        <SafeAreaProvider>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" />
-          </View>
-          <StatusBar style="auto" />
-        </SafeAreaProvider>
-      </PaperProvider>
-    )
-  }
-
   return (
-    <PaperProvider theme={emiTheme}>
-      <SafeAreaProvider>
-        {isAuthenticated ? <AppNavigator /> : <AuthScreen />}
-        <StatusBar style={isAuthenticated ? "light" : "dark"} />
-      </SafeAreaProvider>
+    <PaperProvider theme={theme}>
+      <RootNavigator />
+      <StatusBar style="light" />
     </PaperProvider>
   )
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-})

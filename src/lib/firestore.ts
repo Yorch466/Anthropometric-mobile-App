@@ -1,7 +1,7 @@
 // lib/firestore.ts
 import {
   collection, doc, addDoc, getDoc, getDocs,
-  query, orderBy, limit as fsLimit, startAfter, onSnapshot,
+  query, orderBy, limit as fsLimit, startAfter, onSnapshot, Timestamp,
   type DocumentSnapshot, type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore"
 import { db } from "./firebase"
@@ -99,27 +99,49 @@ export const getPlan = async (planId: string): Promise<Plan | null> => {
   if (!snap.exists()) return null
 
   const raw = snap.data() as any
-  // Si el backend guardó el plan anidado como raw.plan, lo usamos; si no, usamos raw directamente.
-  const base = raw.plan ?? raw
+  const createdAt: Date =
+    raw.createdAt instanceof Timestamp ? raw.createdAt.toDate() : new Date(raw.createdAt ?? Date.now())
 
-  // Extraer objetivos diarios si vienen anidados en nutrition.targets_per_day
-  const targets = base.nutrition?.targets_per_day ?? {}
+  // ⚠️ Si viene anidado en raw.plan, lo “aplanamos”
+  const embedded = raw.plan
+  if (embedded) {
+    const tp = embedded?.nutrition?.targets_per_day ?? {}
+    const training = Array.isArray(embedded?.training) ? embedded.training : []
 
-  const plan: Plan = {
-    id: snap.id,
-    user_id: raw.userId || raw.user_id || base.user_id || "",
-    pred_id: raw.predId || raw.pred_id || base.pred_id || "",
-    kcal: targets.kcal ?? base.kcal ?? 0,
-    protein_g: targets.protein_g ?? base.protein_g ?? 0,
-    fat_g: targets.fat_g ?? base.fat_g ?? 0,
-    carbs_g: targets.carbs_g ?? base.carbs_g ?? 0,
-    runs_per_wk: base.runs_per_wk ?? 0,
-    strength_per_wk: base.strength_per_wk ?? 0,
-    training: Array.isArray(base.training) ? base.training : [], // 👈 default seguro
-    meals_example: base.nutrition?.meals_example ?? base.meals_example ?? [],
-    constraints: base.constraints,
-    createdAt: toDateSafe(raw.createdAt),
+    const normalized: Plan = {
+      id: snap.id,
+      user_id: raw.userId ?? raw.user_id ?? "",
+      pred_id: raw.predId ?? raw.pred_id ?? "",
+      // ← valores que tus pantallas esperan “planos”:
+      kcal: tp.kcal ?? 0,
+      protein_g: tp.protein_g ?? 0,
+      fat_g: tp.fat_g ?? 0,
+      carbs_g: tp.carbs_g ?? 0,
+      // Si tu planner no devuelve estos a nivel nutrition, puedes guardarlos en `summary`
+      runs_per_wk: embedded.runs_per_wk ?? embedded.summary?.runs_per_wk ?? 0,
+      strength_per_wk: embedded.strength_per_wk ?? embedded.summary?.strength_per_wk ?? 0,
+      training,                           // ← lista de días/sesiones
+      meals_example: embedded.nutrition?.meals_example ?? [],
+      constraints: embedded.constraints ?? undefined,
+      createdAt,
+    }
+    return normalized
   }
 
-  return plan
+  // Si ya viniera “plano”, lo respetamos
+  return {
+    id: snap.id,
+    user_id: raw.user_id ?? raw.userId ?? "",
+    pred_id: raw.pred_id ?? raw.predId ?? "",
+    kcal: raw.kcal ?? 0,
+    protein_g: raw.protein_g ?? 0,
+    fat_g: raw.fat_g ?? 0,
+    carbs_g: raw.carbs_g ?? 0,
+    runs_per_wk: raw.runs_per_wk ?? 0,
+    strength_per_wk: raw.strength_per_wk ?? 0,
+    training: raw.training ?? [],
+    meals_example: raw.meals_example ?? [],
+    constraints: raw.constraints ?? undefined,
+    createdAt,
+  } as Plan
 }

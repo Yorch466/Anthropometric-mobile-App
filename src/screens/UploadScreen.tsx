@@ -5,18 +5,24 @@ import React, { useState } from "react"
 import { View, StyleSheet, ScrollView, Image, Alert } from "react-native"
 import { Card, Text, Button, TextInput, Switch, Checkbox, ActivityIndicator } from "react-native-paper"
 import { useNavigation } from "@react-navigation/native"
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import * as ImagePicker from "expo-image-picker"
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { Ionicons } from "@expo/vector-icons"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
-import { storage, db } from "@/lib/firebase"
+import { db } from "@/lib/firebase"
 import { callProcessMultipart } from "@/lib/api"
 import type { Goals, Constraints } from "@/types"
 import { getCurrentUserId } from "@/hooks/auth"
 import { PROCESS_URL } from "@/config/env"
+import BottomActionBar from "@/components/BottomActivationBar" // <-- si tu archivo es BottomActivationBar, cambia esto
 
-// Si tienes RootStackParamList bien tipado, reemplaza "any" por tu tipo:
-// type UploadNavigationProp = NativeStackNavigationProp<RootStackParamList, "Upload">
-type UploadNavigationProp = any
+type UploadNavigationProp = NativeStackNavigationProp<any, "Upload">
+
+// Colores EMI
+const emiBlue = "#0052a5"
+const emiGold = "#e9b400"
+const bg = "#f8f9fa"
+const muted = "#666"
 
 export const UploadScreen: React.FC = () => {
   const navigation = useNavigation<UploadNavigationProp>()
@@ -40,10 +46,10 @@ export const UploadScreen: React.FC = () => {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // ✅ (no MediaTypeOptions)
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [3, 4],
-      quality: 0.8,
+      quality: 0.9,
     })
     if (!result.canceled && result.assets[0]) {
       setSelectedImage(result.assets[0].uri)
@@ -51,19 +57,32 @@ export const UploadScreen: React.FC = () => {
   }
 
   const handleSubmit = async () => {
-    // ...validaciones previas
+    if (!selectedImage) {
+      Alert.alert("Error", "Por favor selecciona una imagen.")
+      return
+    }
+    if (goals.run_s <= 0 || goals.push <= 0 || goals.sit <= 0) {
+      Alert.alert("Error", "Por favor completa todas las metas.")
+      return
+    }
+
     const userId = getCurrentUserId()
-    if (!userId) { Alert.alert("Error", "Usuario no autenticado."); return }
+    if (!userId) {
+      Alert.alert("Error", "Usuario no autenticado.")
+      return
+    }
 
     setProcessing(true)
     try {
+      // Llamada MULTIPART a tu backend (archivo + campos)
       const resp = await callProcessMultipart({
-        fileUri: selectedImage!, // ya validado arriba
+        fileUri: selectedImage,
         sex,
         goal_3200_s: goals.run_s,
         goal_push: goals.push,
         goal_sit: goals.sit,
         user_id: userId,
+        // flags opcionales como 0/1
         knee: constraints.inj_knee ? 1 : 0,
         shoulder: constraints.inj_shoulder ? 1 : 0,
         back: constraints.inj_back ? 1 : 0,
@@ -73,10 +92,32 @@ export const UploadScreen: React.FC = () => {
         baseUrl: PROCESS_URL,
       })
 
-      // LOG para ver qué llega
       console.log("RESP /process:", resp)
 
+      // Si el backend devuelve IDs, navegamos y reflejamos en la subcolección del usuario
       if (resp?.uploadId && resp?.predId && resp?.planId) {
+        // Espejo en users/{uid}/uploads/{uploadId} como 'planned'
+        try {
+          const userDoc = doc(db, "users", userId, "uploads", String(resp.uploadId))
+          await setDoc(
+            userDoc,
+            {
+              image_path: "", // si luego guardas downloadURL, cámbialo aquí
+              sex,
+              goals,
+              constraints,
+              status: "planned",
+              predId: String(resp.predId),
+              planId: String(resp.planId),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          )
+        } catch (e) {
+          console.warn("No se pudo reflejar el upload en users/{uid}/uploads:", e)
+        }
+
         navigation.replace("Results", {
           uploadId: String(resp.uploadId),
           predId: String(resp.predId),
@@ -85,34 +126,6 @@ export const UploadScreen: React.FC = () => {
         return
       }
 
-      if (resp?.uploadId && resp?.predId && resp?.planId) {
-  // 👇 ESCRIBE/REFLEJA EN LA SUBCOLECCIÓN DEL USUARIO
-    const userDoc = doc(db, "users", userId, "uploads", String(resp.uploadId))
-    await setDoc(
-    userDoc,
-    {
-      image_path: "",                         // si luego guardas downloadURL, cámbialo aquí
-      sex,
-      goals,
-      constraints,
-      status: "planned",                      // 🔸 usa "planned" para alinear con tu History actual
-      predId: String(resp.predId),
-      planId: String(resp.planId),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  )
-
-  // ahora sí navega
-    navigation.replace("Results", {
-      uploadId: String(resp.uploadId),
-      predId: String(resp.predId),
-      planId: String(resp.planId),
-    })
-    return
-  }
-
       Alert.alert("Atención", "El backend respondió sin IDs. Revisa el log.")
       setProcessing(false)
     } catch (e: any) {
@@ -120,14 +133,12 @@ export const UploadScreen: React.FC = () => {
       Alert.alert("Error", e?.message ?? "No se pudo procesar la imagen.")
       setProcessing(false)
     }
-    
   }
 
   const updateGoal = (key: keyof Goals, value: string) => {
     const numValue = Number.parseInt(value) || 0
     setGoals((prev) => ({ ...prev, [key]: numValue }))
   }
-
   const updateConstraint = (key: keyof Constraints, value: boolean) => {
     setConstraints((prev) => ({ ...prev, [key]: value }))
   }
@@ -135,10 +146,8 @@ export const UploadScreen: React.FC = () => {
   if (processing) {
     return (
       <View style={styles.processingContainer}>
-        <ActivityIndicator size="large" />
-        <Text variant="headlineSmall" style={styles.processingTitle}>
-          Procesando...
-        </Text>
+        <ActivityIndicator size="large" color={emiBlue} />
+        <Text variant="headlineSmall" style={styles.processingTitle}>Procesando...</Text>
         <Text variant="bodyLarge" style={styles.processingSubtitle}>
           Analizando tu imagen y generando tu plan personalizado
         </Text>
@@ -147,24 +156,86 @@ export const UploadScreen: React.FC = () => {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
+    <View style={styles.root}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Instrucciones para la foto */}
+        <Card style={styles.instructionsCard}>
+          <Card.Content>
+            <Text variant="titleLarge" style={styles.instructionsTitle}>📸 Instrucciones para la foto</Text>
+            <Text variant="bodyMedium" style={styles.instructionsSubtitle}>
+              Sigue estas indicaciones para mejores resultados
+            </Text>
+
+            <View style={styles.instructionsList}>
+              <View style={styles.instructionItem}>
+                <View style={styles.iconContainer}><Ionicons name="resize-outline" size={24} color={emiBlue} /></View>
+                <View style={styles.instructionText}>
+                  <Text variant="bodyLarge" style={styles.instructionTitle}>Distancia: 2 metros</Text>
+                  <Text variant="bodyMedium" style={styles.instructionDescription}>
+                    Colócate a 2 metros para capturar todo tu cuerpo.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.instructionItem}>
+                <View style={styles.iconContainer}><Ionicons name="eye-outline" size={24} color={emiBlue} /></View>
+                <View style={styles.instructionText}>
+                  <Text variant="bodyLarge" style={styles.instructionTitle}>Altura de los ojos</Text>
+                  <Text variant="bodyMedium" style={styles.instructionDescription}>
+                    La cámara debe estar a la altura de tus ojos.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.instructionItem}>
+                <View style={styles.iconContainer}><Ionicons name="sunny-outline" size={24} color={emiBlue} /></View>
+                <View style={styles.instructionText}>
+                  <Text variant="bodyLarge" style={styles.instructionTitle}>Buena iluminación</Text>
+                  <Text variant="bodyMedium" style={styles.instructionDescription}>
+                    Usa luz uniforme; evita sombras fuertes.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.instructionItem}>
+                <View style={styles.iconContainer}><Ionicons name="shirt-outline" size={24} color={emiBlue} /></View>
+                <View style={styles.instructionText}>
+                  <Text variant="bodyLarge" style={styles.instructionTitle}>Ropa ajustada</Text>
+                  <Text variant="bodyMedium" style={styles.instructionDescription}>
+                    Ropa deportiva ajustada para perfilar tu silueta.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.instructionItem}>
+                <View style={styles.iconContainer}><Ionicons name="person-outline" size={24} color={emiBlue} /></View>
+                <View style={styles.instructionText}>
+                  <Text variant="bodyLarge" style={styles.instructionTitle}>Postura natural</Text>
+                  <Text variant="bodyMedium" style={styles.instructionDescription}>
+                    De pie, erguido y brazos a los costados.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+
         {/* Imagen */}
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleLarge" style={styles.sectionTitle}>Foto Corporal</Text>
             <Text variant="bodyMedium" style={styles.sectionDescription}>
-              Sube una foto de cuerpo completo para obtener medidas precisas
+              Sube una foto de cuerpo completo siguiendo las instrucciones anteriores.
             </Text>
             {selectedImage ? (
               <View style={styles.imageContainer}>
                 <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
-                <Button mode="outlined" onPress={pickImage} style={styles.changeImageButton}>
+                <Button mode="outlined" onPress={pickImage} style={styles.changeImageButton} textColor={emiBlue}>
                   Cambiar Imagen
                 </Button>
               </View>
             ) : (
-              <Button mode="contained" onPress={pickImage} style={styles.selectImageButton} icon="camera-plus">
+              <Button mode="contained" onPress={pickImage} style={styles.selectImageButton}>
                 Seleccionar Imagen
               </Button>
             )}
@@ -198,7 +269,7 @@ export const UploadScreen: React.FC = () => {
             <View style={styles.goalsContainer}>
               <TextInput
                 label="Tiempo 3200m (segundos)"
-                value={goals.run_s.toString()}
+                value={String(goals.run_s)}
                 onChangeText={(v) => updateGoal("run_s", v)}
                 keyboardType="numeric"
                 mode="outlined"
@@ -206,7 +277,7 @@ export const UploadScreen: React.FC = () => {
               />
               <TextInput
                 label="Flexiones (cantidad)"
-                value={goals.push.toString()}
+                value={String(goals.push)}
                 onChangeText={(v) => updateGoal("push", v)}
                 keyboardType="numeric"
                 mode="outlined"
@@ -214,7 +285,7 @@ export const UploadScreen: React.FC = () => {
               />
               <TextInput
                 label="Abdominales (cantidad)"
-                value={goals.sit.toString()}
+                value={String(goals.sit)}
                 onChangeText={(v) => updateGoal("sit", v)}
                 keyboardType="numeric"
                 mode="outlined"
@@ -270,36 +341,69 @@ export const UploadScreen: React.FC = () => {
         >
           Analizar Imagen
         </Button>
-      </View>
-    </ScrollView>
+
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      {/* barra inferior EMI */}
+      <BottomActionBar />
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  root: { flex: 1, backgroundColor: bg },
+  container: { flex: 1 },
   content: { padding: 20 },
-  card: { marginBottom: 20, elevation: 2, borderRadius: 16 },
-  sectionTitle: { fontWeight: "600", color: "#1a1a1a", marginBottom: 8 },
-  sectionDescription: { color: "#666", marginBottom: 16 },
+
+  instructionsCard: {
+    marginBottom: 24,
+    elevation: 3,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    borderLeftWidth: 4,
+    borderLeftColor: emiGold,
+  },
+  instructionsTitle: { fontWeight: "700", color: emiBlue, marginBottom: 8, fontSize: 20 },
+  instructionsSubtitle: { color: muted, marginBottom: 20, fontSize: 14 },
+  instructionsList: { gap: 16 },
+  instructionItem: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  iconContainer: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: "#e9b40015",
+    justifyContent: "center", alignItems: "center", marginTop: 2,
+  },
+  instructionText: { flex: 1 },
+  instructionTitle: { fontWeight: "600", color: emiBlue, marginBottom: 4 },
+  instructionDescription: { color: muted, lineHeight: 20 },
+
+  card: { marginBottom: 20, elevation: 2, borderRadius: 16, backgroundColor: "#ffffff" },
+  sectionTitle: { fontWeight: "600", color: emiBlue, marginBottom: 8 },
+  sectionDescription: { color: muted, marginBottom: 16 },
+
   imageContainer: { alignItems: "center" },
-  selectedImage: { width: 200, height: 267, borderRadius: 12, marginBottom: 16 },
-  changeImageButton: { borderRadius: 8 },
-  selectImageButton: { borderRadius: 12, backgroundColor: "#4a90e2" },
+  selectedImage: { width: 200, height: 267, borderRadius: 12, marginBottom: 16, borderWidth: 2, borderColor: emiGold },
+  changeImageButton: { borderRadius: 8, borderColor: emiGold },
+  selectImageButton: { borderRadius: 12, backgroundColor: emiGold },
+
   sexToggle: { marginTop: 8 },
-  fieldLabel: { fontWeight: "500", color: "#1a1a1a", marginBottom: 12 },
+  fieldLabel: { fontWeight: "500", color: emiBlue, marginBottom: 12 },
   toggleContainer: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 },
-  toggleLabel: { color: "#666" },
-  activeToggleLabel: { color: "#4a90e2", fontWeight: "600" },
+  toggleLabel: { color: muted },
+  activeToggleLabel: { color: emiBlue, fontWeight: "600" },
+
   goalsContainer: { gap: 16 },
   goalInput: { backgroundColor: "#fff" },
+
   constraintsContainer: { gap: 8 },
-  constraintCategory: { fontWeight: "600", color: "#1a1a1a", marginTop: 8, marginBottom: 8 },
+  constraintCategory: { fontWeight: "600", color: emiBlue, marginTop: 8, marginBottom: 8 },
   injuryCategory: { marginTop: 16 },
   checkboxRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   checkboxLabel: { marginLeft: 8, color: "#1a1a1a" },
-  submitButton: { borderRadius: 12, backgroundColor: "#4a90e2", marginTop: 8, marginBottom: 32 },
-  submitButtonContent: { paddingVertical: 8 },
-  processingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f5", padding: 20 },
-  processingTitle: { fontWeight: "600", color: "#1a1a1a", marginTop: 24, marginBottom: 8 },
-  processingSubtitle: { color: "#666", textAlign: "center" },
+
+  submitButton: { borderRadius: 12, backgroundColor: emiGold, marginTop: 8, marginBottom: 32, elevation: 3 },
+  submitButtonContent: { paddingVertical: 12 },
+
+  processingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg, padding: 20 },
+  processingTitle: { fontWeight: "600", color: emiBlue, marginTop: 24, marginBottom: 8 },
+  processingSubtitle: { color: muted, textAlign: "center" },
 })

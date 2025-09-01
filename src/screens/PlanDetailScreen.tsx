@@ -1,16 +1,24 @@
+// src/screens/PlanDetailScreen.tsx
 "use client"
 
 import type React from "react"
 import { useState, useEffect } from "react"
 import { View, StyleSheet, ScrollView } from "react-native"
 import { Card, Text, ActivityIndicator, Chip } from "react-native-paper"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useRoute } from "@react-navigation/native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
 import type { RootStackParamList } from "../navigation/AppNavigator"
 import { getPlan } from "../lib/firestore"
 import type { Plan } from "../types"
+import BottomActionBar from "@/components/BottomActivationBar" // <- si tu archivo es BottomActivationBar, cambia este import
 
 type PlanDetailScreenProps = NativeStackScreenProps<RootStackParamList, "PlanDetail">
+
+const emiBlue = "#0052a5"
+const emiGold = "#e9b400"
+const bg = "#f8f9fa"
+const muted = "#666"
 
 export const PlanDetailScreen: React.FC = () => {
   const route = useRoute<PlanDetailScreenProps["route"]>()
@@ -21,158 +29,218 @@ export const PlanDetailScreen: React.FC = () => {
 
   useEffect(() => {
     loadPlan()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId])
 
   const loadPlan = async () => {
     try {
-      const planData = await getPlan(planId)
-      setPlan(planData)
+      const planData = await getPlan(planId) // devuelve el doc crudo
+      const normalized = normalizePlan(planData)
+      setPlan(normalized as any)
     } catch (error) {
       console.error("Error loading plan:", error)
     } finally {
       setLoading(false)
     }
   }
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={emiBlue} />
+        <Text variant="bodyLarge" style={styles.loadingText}>Cargando plan detallado...</Text>
+      </View>
+    )
+  }
 
-  const getDayName = (day: number): string => {
+  const getDayName = (day: number | string): string => {
+    if (typeof day === "string") return day
     const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     return days[day - 1] || `Día ${day}`
   }
 
   const getSessionDescription = (session: any): string => {
-    if (session.type === "run") {
-      return `Correr ${session.minutes} minutos`
-    } else if (session.type === "strength") {
-      return `Entrenamiento de fuerza - ${session.sets} sets`
-    } else if (session.type === "core") {
-      return `Entrenamiento de core - ${session.minutes} minutos`
-    }
-    return session.type
+    if (session?.type === "run") return `Correr ${session.minutes ?? "-"} minutos`
+    if (session?.type === "strength") return `Fuerza — ${session.sets ?? session.pushups_sets ?? "-"} sets`
+    if (session?.type === "core") return `Core — ${session.minutes ?? session.situps_sets ?? "-"}`
+    return session?.type ?? "-"
   }
 
-  const getSessionIcon = (type: string): string => {
+  const getSessionIcon = (type: string): keyof typeof MaterialCommunityIcons.glyphMap => {
     switch (type) {
-      case "run":
-        return "run"
-      case "strength":
-        return "dumbbell"
-      case "core":
-        return "yoga"
-      default:
-        return "fitness"
+      case "run": return "run"
+      case "strength": return "dumbbell"
+      case "core": return "meditation"
+      default: return "arm-flex-outline"
     }
   }
 
   const getTagColor = (tag: string): string => {
-    switch (tag.toLowerCase()) {
+    switch ((tag || "").toLowerCase()) {
       case "vegano":
-      case "vegan":
-        return "#4caf50"
+      case "vegan": return "#4caf50"
       case "sin gluten":
-      case "gluten_free":
-        return "#ff9800"
+      case "gluten_free": return emiGold
       case "sin lactosa":
-      case "lactose_free":
-        return "#2196f3"
-      default:
-        return "#9e9e9e"
+      case "lactose_free": return emiBlue
+      default: return "#9e9e9e"
     }
   }
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
-        <Text variant="bodyLarge" style={styles.loadingText}>
-          Cargando plan detallado...
-        </Text>
+        <ActivityIndicator size="large" color={emiBlue} />
+        <Text variant="bodyLarge" style={styles.loadingText}>Cargando plan detallado...</Text>
       </View>
     )
   }
 
+  // arriba del componente o dentro del archivo
+type Session = {
+  type?: "run" | "strength" | "core" | string
+  minutes?: number
+  sets?: number
+  pushups_sets?: number
+  situps_sets?: number
+  exercises?: string[]
+}
+
+type TrainingDay = { day: number | string; sessions: Session[] }
+
+function normalizePlan(raw: any) {
+  // algunos backends guardan en "plan"
+  const p = raw?.plan ? raw.plan : raw ?? {}
+
+  // asegurar training en formato homogéneo
+  const trainingArray: TrainingDay[] = Array.isArray(p.training)
+    ? p.training.map((d: any, idx: number) => ({
+        day: d?.day ?? idx + 1,
+        sessions: Array.isArray(d?.sessions) ? d.sessions : [],
+      }))
+    : []
+
+  // contar sesiones por tipo
+  const totals = trainingArray.reduce(
+    (acc, d) => {
+      d.sessions.forEach((s: Session) => {
+        const t = (s?.type || "").toLowerCase()
+        if (t === "run") acc.runs += 1
+        if (t === "strength") acc.str += 1
+      })
+      return acc
+    },
+    { runs: 0, str: 0 }
+  )
+
+  // nutrición puede venir en p.nutrition.targets_per_day
+  const targets = p?.nutrition?.targets_per_day ?? {}
+
+  return {
+    kcal: p?.kcal ?? targets?.kcal ?? null,
+    protein_g: p?.protein_g ?? targets?.protein_g ?? null,
+    fat_g: p?.fat_g ?? targets?.fat_g ?? null,
+    carbs_g: p?.carbs_g ?? targets?.carbs_g ?? null,
+    runs_per_wk: p?.runs_per_wk ?? totals.runs,
+    strength_per_wk: p?.strength_per_wk ?? totals.str,
+    training: trainingArray,
+    meals_example: Array.isArray(p?.meals_example) ? p.meals_example : [],
+  }
+}
+
+
   if (!plan) {
     return (
       <View style={styles.errorContainer}>
-        <Text variant="headlineSmall" style={styles.errorTitle}>
-          Error al cargar plan
-        </Text>
-        <Text variant="bodyLarge" style={styles.errorText}>
-          No se pudo cargar el plan detallado
-        </Text>
+        <MaterialCommunityIcons name="alert-circle-outline" size={48} color={emiBlue} />
+        <Text variant="headlineSmall" style={styles.errorTitle}>Error al cargar plan</Text>
+        <Text variant="bodyLarge" style={styles.errorText}>No se pudo cargar el plan detallado</Text>
       </View>
     )
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        {/* Plan Overview */}
+    <View style={styles.root}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {/* Resumen del plan */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineSmall" style={styles.cardTitle}>
-              Resumen del Plan
-            </Text>
+            <View style={styles.cardHeader}>
+              <MaterialCommunityIcons name="chart-line" size={22} color={emiBlue} />
+              <Text variant="headlineSmall" style={styles.cardTitle}>Resumen del Plan</Text>
+            </View>
+
             <View style={styles.overviewGrid}>
               <View style={styles.overviewItem}>
-                <Text variant="titleLarge" style={styles.overviewValue}>
-                  {plan.kcal}
-                </Text>
-                <Text variant="bodyMedium" style={styles.overviewLabel}>
-                  Calorías diarias
-                </Text>
+                <View style={styles.overviewIconContainer}>
+                  <MaterialCommunityIcons name="fire" size={22} color="#FFFFFF" />
+                </View>
+                <Text variant="titleLarge" style={styles.overviewValue}>{plan.kcal ?? "-"}</Text>
+                <Text variant="bodyMedium" style={styles.overviewLabel}>Calorías diarias</Text>
               </View>
+
               <View style={styles.overviewItem}>
-                <Text variant="titleLarge" style={styles.overviewValue}>
-                  {plan.runs_per_wk}
-                </Text>
-                <Text variant="bodyMedium" style={styles.overviewLabel}>
-                  Carreras/semana
-                </Text>
+                <View style={styles.overviewIconContainer}>
+                  <MaterialCommunityIcons name="run" size={22} color="#FFFFFF" />
+                </View>
+                <Text variant="titleLarge" style={styles.overviewValue}>{plan.runs_per_wk ?? 0}</Text>
+                <Text variant="bodyMedium" style={styles.overviewLabel}>Carreras/semana</Text>
               </View>
+
               <View style={styles.overviewItem}>
-                <Text variant="titleLarge" style={styles.overviewValue}>
-                  {plan.strength_per_wk}
-                </Text>
-                <Text variant="bodyMedium" style={styles.overviewLabel}>
-                  Fuerza/semana
-                </Text>
+                <View style={styles.overviewIconContainer}>
+                  <MaterialCommunityIcons name="dumbbell" size={22} color="#FFFFFF" />
+                </View>
+                <Text variant="titleLarge" style={styles.overviewValue}>{plan.strength_per_wk ?? 0}</Text>
+                <Text variant="bodyMedium" style={styles.overviewLabel}>Fuerza/semana</Text>
               </View>
             </View>
           </Card.Content>
         </Card>
 
-        {/* Weekly Training Schedule */}
+        {/* Cronograma semanal */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineSmall" style={styles.cardTitle}>
-              Cronograma Semanal
-            </Text>
+            <View style={styles.cardHeader}>
+              <MaterialCommunityIcons name="calendar-week" size={22} color={emiBlue} />
+              <Text variant="headlineSmall" style={styles.cardTitle}>Cronograma Semanal</Text>
+            </View>
+
             <View style={styles.trainingSchedule}>
-              {plan.training.map((day) => (
-                <Card key={day.day} style={styles.dayCard}>
+              {(plan.training ?? []).map((day, idx) => (
+                <Card key={`${String(day.day)}-${idx}`} style={styles.dayCard}>
                   <Card.Content>
-                    <Text variant="titleLarge" style={styles.dayTitle}>
-                      {getDayName(day.day)}
-                    </Text>
-                    {day.sessions.length > 0 ? (
+                    <Text variant="titleLarge" style={styles.dayTitle}>{getDayName(day.day)}</Text>
+
+                    {(day.sessions ?? []).length > 0 ? (
                       <View style={styles.sessions}>
-                        {day.sessions.map((session, index) => (
-                          <View key={index} style={styles.session}>
+                        {day.sessions.map((session, j) => (
+                          <View key={j} style={styles.session}>
                             <View style={styles.sessionHeader}>
+                              <MaterialCommunityIcons name={getSessionIcon(session.type)} size={20} color={emiGold} />
                               <Text variant="titleMedium" style={styles.sessionType}>
-                                {session.type.charAt(0).toUpperCase() + session.type.slice(1)}
+                                {session.type?.charAt(0).toUpperCase() + session.type?.slice(1)}
                               </Text>
                             </View>
-                            <Text variant="bodyMedium" style={styles.sessionDescription}>
-                              {getSessionDescription(session)}
-                            </Text>
+                            <Text variant="bodyMedium" style={styles.sessionDescription}>{getSessionDescription(session)}</Text>
+
+                            {/* Extras opcionales si existen */}
+                            {!!session.exercises?.length && (
+                              <View style={styles.exList}>
+                                {session.exercises.map((ex: string, k: number) => (
+                                  <Chip key={k} style={styles.exChip} textStyle={styles.exChipText}>
+                                    {ex}
+                                  </Chip>
+                                ))}
+                              </View>
+                            )}
                           </View>
                         ))}
                       </View>
                     ) : (
-                      <Text variant="bodyMedium" style={styles.restDay}>
-                        Día de descanso
-                      </Text>
+                      <View style={styles.restDayContainer}>
+                        <MaterialCommunityIcons name="sleep" size={20} color="#999" />
+                        <Text variant="bodyMedium" style={styles.restDay}>Día de descanso</Text>
+                      </View>
                     )}
                   </Card.Content>
                 </Card>
@@ -181,40 +249,46 @@ export const PlanDetailScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
-        {/* Meal Examples */}
-        {plan.meals_example && plan.meals_example.length > 0 && (
+        {/* Ejemplos de comidas */}
+        {Array.isArray(plan.meals_example) && plan.meals_example.length > 0 && (
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="headlineSmall" style={styles.cardTitle}>
-                Ejemplos de Comidas
-              </Text>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons name="food-apple" size={22} color={emiBlue} />
+                <Text variant="headlineSmall" style={styles.cardTitle}>Ejemplos de Comidas</Text>
+              </View>
               <Text variant="bodyMedium" style={styles.cardDescription}>
-                Sugerencias de comidas que se ajustan a tu plan nutricional
+                Sugerencias que se ajustan a tu objetivo nutricional
               </Text>
+
               <View style={styles.meals}>
-                {plan.meals_example.map((meal, index) => (
-                  <Card key={index} style={styles.mealCard}>
+                {plan.meals_example.map((meal, i) => (
+                  <Card key={i} style={styles.mealCard}>
                     <Card.Content>
-                      <Text variant="titleMedium" style={styles.mealTitle}>
-                        {meal.title}
-                      </Text>
+                      <View style={styles.mealHeader}>
+                        <MaterialCommunityIcons name="silverware-fork-knife" size={18} color={emiGold} />
+                        <Text variant="titleMedium" style={styles.mealTitle}>{meal.title}</Text>
+                      </View>
+
                       <View style={styles.mealNutrition}>
                         <Text variant="bodySmall" style={styles.mealNutritionText}>
-                          {meal.kcal} kcal • {meal.protein_g}g proteína • {meal.fat_g}g grasa • {meal.carbs_g}g
-                          carbohidratos
+                          <Text style={styles.nutritionHighlight}>{meal.kcal} kcal</Text>
+                          {"  •  "}{meal.protein_g}g proteína
+                          {"  •  "}{meal.fat_g}g grasa
+                          {"  •  "}{meal.carbs_g}g carbos
                         </Text>
                       </View>
-                      {meal.tags && meal.tags.length > 0 && (
+
+                      {!!meal.tags?.length && (
                         <View style={styles.mealTags}>
-                          {meal.tags.map((tag, tagIndex) => (
-                            <Chip
-                              key={tagIndex}
-                              style={[styles.mealTag, { backgroundColor: getTagColor(tag) + "20" }]}
-                              textStyle={[styles.mealTagText, { color: getTagColor(tag) }]}
-                            >
-                              {tag}
-                            </Chip>
-                          ))}
+                          {meal.tags.map((tag, t) => {
+                            const c = getTagColor(tag)
+                            return (
+                              <Chip key={t} style={[styles.mealTag, { backgroundColor: c + "22" }]} textStyle={[styles.mealTagText, { color: c }]}>
+                                {tag}
+                              </Chip>
+                            )
+                          })}
                         </View>
                       )}
                     </Card.Content>
@@ -224,145 +298,80 @@ export const PlanDetailScreen: React.FC = () => {
             </Card.Content>
           </Card>
         )}
-      </View>
-    </ScrollView>
+
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      <BottomActionBar />
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  content: {
-    padding: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  loadingText: {
-    marginTop: 16,
-    color: "#666",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 20,
-  },
-  errorTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  errorText: {
-    color: "#666",
-    textAlign: "center",
-  },
+  root: { flex: 1, backgroundColor: bg, justifyContent: "space-between" },
+  container: { flex: 1, backgroundColor: bg },
+  content: { padding: 20 },
+
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg },
+  loadingText: { marginTop: 16, color: muted },
+
+  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg, padding: 20 },
+  errorTitle: { fontWeight: "600", color: emiBlue, marginBottom: 8, marginTop: 16 },
+  errorText: { color: muted, textAlign: "center" },
+
   card: {
     marginBottom: 20,
-    elevation: 2,
+    elevation: 3,
     borderRadius: 16,
-  },
-  cardTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 16,
-  },
-  cardDescription: {
-    color: "#666",
-    marginBottom: 16,
-  },
-  overviewGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  overviewItem: {
-    alignItems: "center",
-  },
-  overviewValue: {
-    fontWeight: "bold",
-    color: "#4a90e2",
-    marginBottom: 4,
-  },
-  overviewLabel: {
-    color: "#666",
-    textAlign: "center",
-  },
-  trainingSchedule: {
-    gap: 12,
-  },
-  dayCard: {
-    elevation: 1,
-    borderRadius: 12,
-    backgroundColor: "#fafafa",
-  },
-  dayTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 12,
-  },
-  sessions: {
-    gap: 8,
-  },
-  session: {
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
     borderLeftWidth: 4,
-    borderLeftColor: "#4a90e2",
+    borderLeftColor: emiBlue,
   },
-  sessionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
+  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+  cardTitle: { fontWeight: "700", color: emiBlue, marginLeft: 8 },
+
+  // Overview
+  overviewGrid: { flexDirection: "row", justifyContent: "space-around" },
+  overviewItem: { alignItems: "center" },
+  overviewIconContainer: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: emiGold, justifyContent: "center", alignItems: "center", marginBottom: 8,
   },
-  sessionType: {
-    fontWeight: "600",
-    color: "#4a90e2",
-  },
-  sessionDescription: {
-    color: "#666",
-  },
-  restDay: {
-    color: "#999",
-    fontStyle: "italic",
-    textAlign: "center",
-    paddingVertical: 8,
-  },
-  meals: {
-    gap: 12,
-  },
-  mealCard: {
-    elevation: 1,
-    borderRadius: 12,
-    backgroundColor: "#fafafa",
-  },
-  mealTitle: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  mealNutrition: {
-    marginBottom: 12,
-  },
-  mealNutritionText: {
-    color: "#666",
-  },
-  mealTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  mealTag: {
-    height: 28,
-  },
-  mealTagText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
+  overviewValue: { fontWeight: "bold", color: emiBlue, marginBottom: 4 },
+  overviewLabel: { color: muted, textAlign: "center" },
+
+  // Training
+  trainingSchedule: { gap: 12 },
+  dayCard: { elevation: 2, borderRadius: 12, backgroundColor: "#FFFFFF", borderLeftWidth: 3, borderLeftColor: emiGold },
+  dayTitle: { fontWeight: "700", color: emiBlue, marginBottom: 12 },
+  sessions: { gap: 8 },
+  session: { padding: 12, backgroundColor: bg, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: emiBlue },
+  sessionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+  sessionType: { fontWeight: "700", color: emiBlue, marginLeft: 8 },
+  sessionDescription: { color: muted },
+
+  exList: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  exChip: { backgroundColor: "#e3f2fd", borderColor: emiBlue, borderWidth: 1, height: 26 },
+  exChipText: { color: emiBlue, fontSize: 12, fontWeight: "500",height:20 },
+
+  restDayContainer: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 8 },
+  restDay: { color: "#999", fontStyle: "italic", marginLeft: 8 },
+
+  // Meals
+  meals: { gap: 12 },
+  mealCard: { elevation: 2, borderRadius: 12, backgroundColor: "#FFFFFF", borderLeftWidth: 3, borderLeftColor: emiGold },
+  mealHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  mealTitle: { fontWeight: "700", color: emiBlue, marginLeft: 8 },
+  mealNutrition: { marginBottom: 12 },
+  mealNutritionText: { color: muted },
+  nutritionHighlight: { color: emiGold, fontWeight: "700" },
+  mealTags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  mealTag: { height: 28 },
+  mealTagText: { fontSize: 12, fontWeight: "600" },
+
+  cardDescription: {
+  color: "#6c757d",   // o emiColors.muted si lo tienes
+  marginBottom: 16,
+},
+
 })

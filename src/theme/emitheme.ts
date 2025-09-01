@@ -14,29 +14,28 @@ export const palette = {
   outline: "#E2E8F0",
 }
 
-// tipo de tema extendido con un campo `custom`
-export type AppTheme = MD3Theme & {
-  custom: typeof palette
+export const emiColors = {
+  emiBlue: "#0052a5",
+  gold: "#e9b400",        // dorado
+  goldBright: "#e9b500",  // brillante
+  white: "#FFFFFF",
+  bg: "#F4F6FA",
+  surface: "#FFFFFF",
+  text: "#111827",
+  muted: "#6b7280",
+  surfaceVariant: "#EFF4FF",
 }
 
-export const emiTheme: AppTheme = {
-  ...MD3LightTheme,
+export const emiTheme = {
   colors: {
-    ...MD3LightTheme.colors,
-    primary: palette.primary,
-    primaryContainer: palette.primaryDark,
-    secondary: palette.secondary,
-    secondaryContainer: palette.secondaryDark,
-    error: palette.accent,
-    background: palette.bg,
-    surface: palette.surface,
-    surfaceVariant: "#EFF3EF",
-    outline: palette.outline,
-    onPrimary: "#FFFFFF",
-    onSecondary: "#1A1A1A",
-    onSurface: palette.text,
-    onBackground: palette.text,
+    primary: emiColors.emiBlue,
+    secondary: emiColors.gold,
+    secondaryBright: emiColors.goldBright,
+    background: emiColors.bg,
+    surface: emiColors.surface,
+    onSurface: emiColors.text,
+    surfaceVariant: emiColors.surfaceVariant,
   },
-  roundness: 14,
-  custom: palette, // 👈 tus extras van aquí
 }
+
+

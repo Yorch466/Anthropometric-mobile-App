@@ -2,16 +2,18 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { View, StyleSheet, ScrollView } from "react-native"
 import { Card, Text, Button, ActivityIndicator, Chip } from "react-native-paper"
+import { Ionicons } from "@expo/vector-icons"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack"
 import type { RouteProp } from "@react-navigation/native"
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import BottomActionBar from "@/components/BottomActivationBar" // <-- si tu archivo es BottomActivationBar, cambia este import
 
-// Si tienes tu RootStackParamList tipado, usa ese tipo:
+// ---------- Tipos de navegación ----------
 type RootStackParamList = {
   Results: { uploadId: string; predId: string; planId: string }
   PlanDetail: { planId: string }
@@ -21,6 +23,7 @@ type ResultsScreenProps = NativeStackScreenProps<RootStackParamList, "Results">
 type ResultsNavigationProp = NativeStackNavigationProp<RootStackParamList, "Results">
 type ResultsRoute = RouteProp<RootStackParamList, "Results">
 
+// ---------- Tipos de datos (igual a tu versión) ----------
 type Prediction = {
   id?: string
   height_m: number
@@ -54,6 +57,13 @@ type NormalizedPlan = {
   training: TrainingDay[]
 }
 
+// ---------- Colores EMI ----------
+const emiBlue = "#0052a5"
+const emiGold = "#e9b400"
+const bg = "#f8f9fa"
+const muted = "#666"
+
+// ---------- Componente ----------
 export const ResultsScreen: React.FC = () => {
   const navigation = useNavigation<ResultsNavigationProp>()
   const route = useRoute<ResultsRoute>()
@@ -77,12 +87,11 @@ export const ResultsScreen: React.FC = () => {
         setLoading(true)
         setError(null)
 
-        // predictions/{predId} (colección raíz)
+        // --- predictions/{predId} ---
         const predRef = doc(db, "predictions", String(predId))
         const predSnap = await getDoc(predRef)
         if (!predSnap.exists()) throw new Error("No se encontró la predicción.")
         const predData = predSnap.data() as any
-
         const pred: Prediction = {
           id: predSnap.id,
           height_m: Number(predData.height_m ?? 0),
@@ -92,25 +101,24 @@ export const ResultsScreen: React.FC = () => {
         }
         setPrediction(pred)
 
-        // plans/{planId} (colección raíz). Backend guarda dentro de campo "plan"
+        // --- plans/{planId} ---
         const planRef = doc(db, "plans", String(planId))
         const planSnap = await getDoc(planRef)
         if (!planSnap.exists()) throw new Error("No se encontró el plan.")
         const raw = planSnap.data() as any
 
-        // extrae nutrition/training desde raw.plan
         const p = raw?.plan ?? {}
         const nutrition = p?.nutrition ?? {}
         const targets = nutrition?.targets_per_day ?? {}
         const trainingRaw: any[] = Array.isArray(p?.training) ? p.training : []
 
-        // normaliza training a { day, sessions }
+        // normaliza training
         const training: TrainingDay[] = trainingRaw.map((d: any, idx: number) => ({
           day: d?.day ?? idx + 1,
           sessions: Array.isArray(d?.sessions) ? d.sessions : [],
         }))
 
-        // calcula runs_per_wk / strength_per_wk contando sesiones por tipo
+        // cuenta sesiones por tipo
         const totals = training.reduce(
           (acc, d) => {
             (d.sessions || []).forEach((s: Session) => {
@@ -119,7 +127,7 @@ export const ResultsScreen: React.FC = () => {
             })
             return acc
           },
-          { runs: 0, str: 0 }
+          { runs: 0, str: 0 },
         )
 
         const normalized: NormalizedPlan = {
@@ -173,7 +181,7 @@ export const ResultsScreen: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4a90e2" />
+        <ActivityIndicator size="large" color={emiBlue} />
         <Text variant="bodyLarge" style={styles.loadingText}>Cargando resultados...</Text>
       </View>
     )
@@ -186,7 +194,7 @@ export const ResultsScreen: React.FC = () => {
         <Text variant="bodyLarge" style={styles.errorText}>
           {error ?? "No se pudieron cargar los resultados"}
         </Text>
-        <Text style={{ marginTop: 8 }}>
+        <Text style={{ marginTop: 8, color: muted }}>
           uploadId: {String(uploadId ?? "")}
           {"\n"}predId: {String(predId ?? "")}
           {"\n"}planId: {String(planId ?? "")}
@@ -198,29 +206,26 @@ export const ResultsScreen: React.FC = () => {
   const trainingToShow = Array.isArray(plan.training) ? plan.training.slice(0, 3) : []
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
+    <View style={styles.root}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Medidas */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineSmall" style={styles.cardTitle}>Medidas Corporales</Text>
+            <View style={styles.cardHeader}>
+              <Ionicons name="body-outline" size={24} color={emiBlue} />
+              <Text variant="headlineSmall" style={styles.cardTitle}>Medidas Corporales</Text>
+            </View>
             <View style={styles.measurementsGrid}>
               <View style={styles.measurement}>
-                <Text variant="headlineMedium" style={styles.measurementValue}>
-                  {prediction.height_m.toFixed(2)} m
-                </Text>
+                <Text variant="headlineMedium" style={styles.measurementValue}>{prediction.height_m.toFixed(2)}m</Text>
                 <Text variant="bodyMedium" style={styles.measurementLabel}>Altura</Text>
               </View>
               <View style={styles.measurement}>
-                <Text variant="headlineMedium" style={styles.measurementValue}>
-                  {prediction.weight_kg.toFixed(1)} kg
-                </Text>
+                <Text variant="headlineMedium" style={styles.measurementValue}>{prediction.weight_kg.toFixed(1)}kg</Text>
                 <Text variant="bodyMedium" style={styles.measurementLabel}>Peso</Text>
               </View>
               <View style={styles.measurement}>
-                <Text variant="headlineMedium" style={styles.measurementValue}>
-                  {prediction.class_name}
-                </Text>
+                <Text variant="headlineMedium" style={styles.measurementValue}>{prediction.class_name}</Text>
                 <Text variant="bodyMedium" style={styles.measurementLabel}>Clasificación</Text>
               </View>
             </View>
@@ -230,7 +235,10 @@ export const ResultsScreen: React.FC = () => {
         {/* Nutrición */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineSmall" style={styles.cardTitle}>Nutrición Diaria</Text>
+            <View style={styles.cardHeader}>
+              <Ionicons name="nutrition-outline" size={24} color={emiBlue} />
+              <Text variant="headlineSmall" style={styles.cardTitle}>Nutrición Diaria</Text>
+            </View>
             <View style={styles.nutritionGrid}>
               <View style={styles.nutritionItem}>
                 <Text variant="titleLarge" style={styles.nutritionValue}>{plan.kcal ?? "-"}</Text>
@@ -255,16 +263,22 @@ export const ResultsScreen: React.FC = () => {
         {/* Semanal */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text variant="headlineSmall" style={styles.cardTitle}>Plan Semanal</Text>
-            <Text variant="bodyMedium" style={styles.cardDescription}>Resumen de tu entrenamiento semanal</Text>
+            <View style={styles.cardHeader}>
+              <Ionicons name="fitness-outline" size={24} color={emiBlue} />
+              <Text variant="headlineSmall" style={styles.cardTitle}>Plan Semanal</Text>
+            </View>
 
             <View style={styles.weeklyStats}>
               <View style={styles.weeklyStat}>
-                <Text variant="titleLarge" style={styles.weeklyStatValue}>{plan.runs_per_wk}</Text>
+                <View style={styles.weeklyStatCircle}>
+                  <Text variant="titleLarge" style={styles.weeklyStatValue}>{plan.runs_per_wk}</Text>
+                </View>
                 <Text variant="bodyMedium" style={styles.weeklyStatLabel}>Carreras/semana</Text>
               </View>
               <View style={styles.weeklyStat}>
-                <Text variant="titleLarge" style={styles.weeklyStatValue}>{plan.strength_per_wk}</Text>
+                <View style={styles.weeklyStatCircle}>
+                  <Text variant="titleLarge" style={styles.weeklyStatValue}>{plan.strength_per_wk}</Text>
+                </View>
                 <Text variant="bodyMedium" style={styles.weeklyStatLabel}>Fuerza/semana</Text>
               </View>
             </View>
@@ -284,13 +298,11 @@ export const ResultsScreen: React.FC = () => {
                   </View>
                 ))
               ) : (
-                <Text>No hay sesiones para mostrar.</Text>
+                <Text style={{ color: muted }}>No hay sesiones para mostrar.</Text>
               )}
 
               {Array.isArray(plan.training) && plan.training.length > 3 && (
-                <Text variant="bodyMedium" style={styles.moreText}>
-                  +{plan.training.length - 3} días más
-                </Text>
+                <Text variant="bodyMedium" style={styles.moreText}>+{plan.training.length - 3} días más</Text>
               )}
             </View>
           </Card.Content>
@@ -298,48 +310,86 @@ export const ResultsScreen: React.FC = () => {
 
         <Button
           mode="contained"
-          onPress={() => handleViewFullPlan()}
+          onPress={handleViewFullPlan}
           style={styles.viewPlanButton}
           contentStyle={styles.viewPlanButtonContent}
           icon="eye"
         >
           Ver Plan Completo
         </Button>
-      </View>
-    </ScrollView>
+
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      <BottomActionBar />
+    </View>
   )
 }
 
+// ---------- Estilos ----------
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  root: { flex: 1, backgroundColor: bg, justifyContent: "space-between" },
+  container: { flex: 1, backgroundColor: bg },
   content: { padding: 20 },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f5" },
-  loadingText: { marginTop: 16, color: "#666" },
-  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f5", padding: 20 },
-  errorTitle: { fontWeight: "600", color: "#1a1a1a", marginBottom: 8 },
-  errorText: { color: "#666", textAlign: "center" },
-  card: { marginBottom: 20, elevation: 2, borderRadius: 16 },
-  cardTitle: { fontWeight: "600", color: "#1a1a1a", marginBottom: 16 },
-  cardDescription: { color: "#666", marginBottom: 16 },
+
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg },
+  loadingText: { marginTop: 16, color: muted },
+
+  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg, padding: 20 },
+  errorTitle: { fontWeight: "600", color: emiBlue, marginBottom: 8 },
+  errorText: { color: muted, textAlign: "center" },
+
+  card: {
+    marginBottom: 20,
+    elevation: 4,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 4,
+    borderLeftColor: emiBlue,
+    shadowColor: emiBlue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+  cardTitle: { fontWeight: "700", color: emiBlue, marginLeft: 8, fontSize: 20 },
+
+  // Medidas
   measurementsGrid: { flexDirection: "row", justifyContent: "space-around" },
   measurement: { alignItems: "center" },
-  measurementValue: { fontWeight: "bold", color: "#4a90e2", marginBottom: 4 },
-  measurementLabel: { color: "#666" },
+  measurementValue: { fontWeight: "bold", color: emiGold, marginBottom: 4 },
+  measurementLabel: { color: muted, fontWeight: "500" },
+
+  // Nutrición
   nutritionGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  nutritionItem: { width: "48%", alignItems: "center", marginBottom: 16, padding: 12, backgroundColor: "#f8f9fa", borderRadius: 12 },
-  nutritionValue: { fontWeight: "bold", color: "#50c878", marginBottom: 4 },
-  nutritionLabel: { color: "#666" },
-  weeklyStats: { flexDirection: "row", justifyContent: "space-around", marginBottom: 20 },
+  nutritionItem: {
+    width: "48%",
+    alignItems: "center",
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: "#fff8e1",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: emiGold,
+  },
+  nutritionValue: { fontWeight: "bold", color: emiBlue, marginBottom: 4 },
+  nutritionLabel: { color: muted, fontWeight: "500" },
+
+  // Semanal
+  weeklyStats: { flexDirection: "row", justifyContent: "space-around", marginBottom: 16 },
   weeklyStat: { alignItems: "center" },
-  weeklyStatValue: { fontWeight: "bold", color: "#4a90e2", marginBottom: 4 },
-  weeklyStatLabel: { color: "#666" },
+  weeklyStatCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: emiGold, justifyContent: "center", alignItems: "center", marginBottom: 8 },
+  weeklyStatValue: { fontWeight: "bold", color: "#FFFFFF" },
+  weeklyStatLabel: { color: muted, fontWeight: "500", textAlign: "center" },
+
   trainingPreview: { gap: 12 },
-  dayPreview: { padding: 12, backgroundColor: "#f8f9fa", borderRadius: 12 },
-  dayName: { fontWeight: "600", color: "#1a1a1a", marginBottom: 8 },
+  dayPreview: { padding: 16, backgroundColor: "#fff8e1", borderRadius: 12, borderLeftWidth: 3, borderLeftColor: emiGold },
+  dayName: { fontWeight: "600", color: emiBlue, marginBottom: 8, fontSize: 16 },
   sessionsPreview: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  sessionChip: { backgroundColor: "#e3f2fd" },
-  sessionChipText: { color: "#1976d2", fontSize: 12 },
-  moreText: { color: "#666", textAlign: "center", fontStyle: "italic" },
-  viewPlanButton: { borderRadius: 12, backgroundColor: "#4a90e2", marginBottom: 32 },
-  viewPlanButtonContent: { paddingVertical: 8 },
+  sessionChip: { backgroundColor: "#e3f2fd", borderColor: emiBlue, borderWidth: 1 },
+  sessionChipText: { color: emiBlue, fontSize: 12, fontWeight: "500" },
+  moreText: { color: muted, textAlign: "center", fontStyle: "italic" },
+
+  viewPlanButton: { borderRadius: 12, backgroundColor: emiGold, marginBottom: 12, elevation: 3 },
+  viewPlanButtonContent: { paddingVertical: 12 },
 })
