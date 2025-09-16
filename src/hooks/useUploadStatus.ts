@@ -1,41 +1,67 @@
-"use client"
+// src/hooks/useUploadStatus.ts
+import { useEffect, useRef, useState } from 'react';
+import type { Upload } from '@/types';
+import { getCurrentUserId } from '@/hooks/auth';
+import { subscribeToUpload } from '@/lib/uploads';
 
-import { useState, useEffect } from "react"
-import type { Upload } from "../types"
-import {getCurrentUserId } from "../hooks/auth"
-import { subscribeToUpload } from "@/lib/uploads"
-export const useUploadStatus = (uploadId: string | null) => {
-  const [upload, setUpload] = useState<Upload | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+/**
+ * Observa en tiempo real el documento users/{uid}/uploads/{uploadId}.
+ * - Devuelve { upload, loading, error }
+ * - Maneja cambios de uploadId y desmontes sin setState después de unmount.
+ * - Usa el UID actual de Firebase (o puedes pasar uno externo si lo prefieres).
+ */
+export const useUploadStatus = (uploadId: string | null, providedUserId?: string | null) => {
+  const userId = providedUserId ?? getCurrentUserId();
+  const [upload, setUpload] = useState<Upload | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!uploadId);
+  const [error, setError] = useState<string | null>(null);
+
+  // Evita setState después de unmount (Fast Refresh / navegación)
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
+    // sin ID ⇒ no hay nada que escuchar
     if (!uploadId) {
-      setLoading(false)
-      return
+      setUpload(null);
+      setLoading(false);
+      setError(null);
+      return;
     }
 
-    const userId = getCurrentUserId()
+    // sin usuario ⇒ no escuches
     if (!userId) {
-      setError("User not authenticated")
-      setLoading(false)
-      return
+      setUpload(null);
+      setLoading(false);
+      setError('User not authenticated');
+      return;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
-    const unsubscribe = subscribeToUpload(userId, uploadId, (uploadData) => {
-      setUpload(uploadData)
-      setLoading(false)
+    let unsubscribe: undefined | (() => void);
 
-      if (uploadData?.status === "error") {
-        setError("Processing failed")
+    try {
+      unsubscribe = subscribeToUpload(userId, uploadId, (uploadData) => {
+        if (!mounted.current) return;
+        setUpload(uploadData ?? null);
+        setLoading(false);
+        // si tu backend marca status === "error"
+        if (uploadData?.status === 'error') setError('Processing failed');
+      });
+    } catch (e) {
+      if (mounted.current) {
+        setLoading(false);
+        setError('Failed to subscribe to upload');
       }
-    })
+    }
 
-    return unsubscribe
-  }, [uploadId])
+    return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
+  }, [uploadId, userId]);
 
-  return { upload, loading, error }
-}
+  return { upload, loading, error };
+};
