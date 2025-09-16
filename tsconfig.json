@@ -3,17 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
+    "paths": { "@/*": ["src/*"] },
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": [
-    "app/**/*",
-    "src/**/*",
-    "types/**/*",
-    "index.ts",
-    "index.tsx"
-  ]
+  "include": ["app/**/*", "src/**/*", "types/**/*", "index.ts", "index.tsx"]
 }

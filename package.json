@@ -17,7 +17,7 @@
     "expo-image-picker": "~17.0.8",
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "~15.0.7",
-    "firebase": "^12.1.0",
+    "firebase": "^12.2.1",
     "lucide-react": "^0.539.0",
     "react": "19.1.0",
     "react-native": "0.81.4",
@@ -33,5 +33,6 @@
     "typescript": "~5.9.2"
   },
   "private": true,
-  "packageManager": "pnpm@10.16.1+sha256.b77e92ba0d59a6372b6c5041bbb3f866fb85e927df333827f0c7f577c5e1a713"
+  "packageManager": "pnpm@10.16.1+sha256.b77e92ba0d59a6372b6c5041bbb3f866fb85e927df333827f0c7f577c5e1a713",
+  "engines": { "node": ">=20.19.4" }
 }
