@@ -1,3 +1,7 @@
+
+import type { UserProfile } from '@/types';
+// import { friendlyAuthError, getFirebaseCode } from './auth-helpers'; // o tus helpers inline
+
 // src/lib/auth.ts
 import {
   createUserWithEmailAndPassword,
@@ -44,7 +48,8 @@ function getFirebaseCode(err: unknown): string {
 export async function handleSignup(
   email: string,
   password: string,
-  displayName?: string
+  displayName?: string,
+  extra?: Pick<UserProfile, 'age' | 'rankCategory' | 'rank'>
 ): Promise<UserCredential> {
   const normEmail = email.trim().toLowerCase();
   try {
@@ -52,16 +57,16 @@ export async function handleSignup(
     if (displayName?.trim()) {
       await updateProfile(cred.user, { displayName: displayName.trim() });
     }
-    // No bloquees el login si falla la escritura en Firestore
-    upsertUserProfile(cred.user).catch((e) => {
-      console.warn('[upsertUserProfile@signup] ', e);
+    await upsertUserProfile(cred.user, {
+      age: extra?.age ?? null,
+      rankCategory: extra?.rankCategory ?? null,
+      rank: extra?.rank ?? null,
     });
     return cred;
   } catch (e: unknown) {
     const code = getFirebaseCode(e);
-    const msg = friendlyAuthError(code);
-    const err = new Error(msg);
-    (err as any).code = code; // preserva el código por si la UI lo necesita
+    const err = new Error(friendlyAuthError(code));
+    (err as any).code = code;
     throw err;
   }
 }

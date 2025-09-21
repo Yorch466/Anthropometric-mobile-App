@@ -1,7 +1,21 @@
-export interface User {
-  uid: string
-  isAnonymous: boolean
+
+// Antigua informacion mostrable en el perfil
+// export interface User {
+//   uid: string
+//   isAnonymous: boolean
+// }
+
+export interface UserProfile {
+  uid: string;
+  email?: string | null;
+  displayName?: string | null;
+  age?: number | null;
+  rankCategory?: string | null; // usa RankCategory si quieres tipado estricto
+  rank?: string | null;         // usa RankOption['value']
+  createdAt?: number;
+  updatedAt?: number;
 }
+
 
 // src/types.ts
 export type Goals = {
@@ -104,5 +118,6 @@ export interface ProcessPayload {
   goals: Goals
   constraints: Constraints
 }
+
 
 

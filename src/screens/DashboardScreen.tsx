@@ -127,7 +127,7 @@ export const DashboardScreen: React.FC = () => {
             )}
 
             <View style={styles.heroActions}>
-              <Button mode="contained" onPress={() => nav.navigate("Upload")} buttonColor={emiBlue}>
+              <Button mode="contained" onPress={() => nav.navigate("Upload")} buttonColor={emiBlue} textColor="#fff">
                 Subir foto
               </Button>
               {last && (

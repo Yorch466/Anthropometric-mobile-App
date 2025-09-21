@@ -13,7 +13,7 @@ import { db } from "@/lib/firebase"
 import { callProcessMultipart } from "@/lib/api"
 import type { Goals, Constraints } from "@/types"
 import { getCurrentUserId } from "@/hooks/auth"
-import { PROCESS_URL } from "@/config/env"
+import { PROCESS_URL, PROCESS_PATH } from "@/config/env"
 import BottomActionBar from "@/components/BottomActivationBar" // <-- si tu archivo es BottomActivationBar, cambia esto
 
 type UploadNavigationProp = NativeStackNavigationProp<any, "Upload">
@@ -90,6 +90,8 @@ export const UploadScreen: React.FC = () => {
         lactose_free: constraints.lactose_free ? 1 : 0,
         gluten_free: constraints.gluten_free ? 1 : 0,
         baseUrl: PROCESS_URL,
+        processPath: PROCESS_PATH,   // ← aquí se decide '/process' o '/api/process'
+        fileFieldName: 'file',
       })
 
       console.log("RESP /process:", resp)

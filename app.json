@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Fitness App",
+    "name": "EMI-FITNESS",
     "slug": "fitness-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,8 @@
     "scheme": "anthroapp",
     "userInterfaceStyle": "light",
     "extra": {
-      "PROCESS_URL": "https://62bf17a3adde.ngrok-free.app"
+      "PROCESS_URL": "https://738a50a641ee.ngrok-free.app/",
+      "PROCESS_PATH": "/process"
     },
     
     "splash": {

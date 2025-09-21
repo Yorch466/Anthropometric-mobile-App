@@ -24,7 +24,7 @@ export default function BottomActionBar() {
       <View style={styles.bar}>
         {items.map((it) => (
           <TouchableOpacity key={it.label} onPress={it.onPress} style={styles.btn} activeOpacity={0.8}>
-            <MaterialCommunityIcons name={it.icon as any} size={26} color={emiColors.white} />
+            <MaterialCommunityIcons name={it.icon as any} size={26} color={emiColors.gold} />
             <Text variant="labelSmall" style={styles.label}>{it.label}</Text>
           </TouchableOpacity>
         ))}

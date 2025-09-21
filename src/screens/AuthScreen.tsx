@@ -1,207 +1,264 @@
-// src/screens/EMIAuthScreen.tsx
-"use client"
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Card, Text, TextInput, Button, HelperText, Divider, useTheme, type MD3Theme } from 'react-native-paper';
+import { Picker } from '@react-native-picker/picker';
+import { handleLogin, handleSignup } from '@/hooks/auth';
+import { RANKS, type RankCategory } from '@/constants/ranks';
+import { useNavigation } from '@react-navigation/native';
 
-import React, { useState } from "react"
-import { View, StyleSheet } from "react-native"
-import { Card, Text, TextInput, Button, HelperText, Divider } from "react-native-paper"
-import { useNavigation } from "@react-navigation/native"
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
-import type { RootStackParamList } from "@/navigation/AppNavigator"
-import { MaterialCommunityIcons } from "@expo/vector-icons"
-import { handleLogin, handleSignup } from "@/hooks/auth"
+export default function AuthScreen() {
+  const nav = useNavigation<any>();
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
-type Nav = NativeStackNavigationProp<RootStackParamList, "Dashboard">
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-const AZUL_EMI = "#0052a5"
-const AMARILLO_EMI = "#e9b400"
-const BLANCO = "#FFFFFF"
+  const [displayName, setDisplayName] = useState('');
+  const [age, setAge] = useState<string>('');
+  const [rankCat, setRankCat] = useState<RankCategory | ''>('');
+  const [rank, setRank] = useState<string>('');
+  const rankOptions = useMemo(() => (rankCat ? RANKS[rankCat].options : []), [rankCat]);
 
-export default function EMIAuthScreen() {
-  const navigation = useNavigation<Nav>()
-  const [isLogin, setIsLogin] = useState(true)
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState<string>("")
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
 
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const passwordTooShort = password.length > 0 && password.length < 6;
+  const validAge = () => {
+    const n = Number(age);
+    return Number.isFinite(n) && n >= 16 && n <= 80;
+  };
 
-  const passwordTooShort = password.length > 0 && password.length < 6
-
-  const onSubmit = async () => {
-    setErr("")
-    if (!email.trim()) {
-      setErr("Ingresa tu correo.")
-      return
-    }
-    if (!password.trim()) {
-      setErr("Ingresa tu contraseña.")
-      return
-    }
-    if (password.length < 6) {
-      setErr("La contraseña es muy corta (mínimo 6 caracteres).")
-      return
-    }
-    if (!isLogin && !name.trim()) {
-      setErr("Ingresa tu nombre.")
-      return
-    }
+  async function onSubmit() {
+    setErr('');
+    if (!email.trim()) return setErr('Ingresa tu correo.');
+    if (!password.trim()) return setErr('Ingresa tu contraseña.');
+    if (password.length < 6) return setErr('La contraseña es muy corta (mínimo 6 caracteres).');
 
     try {
-      setLoading(true)
-      if (isLogin) {
-        await handleLogin(email, password)
+      setLoading(true);
+      if (mode === 'login') {
+        await handleLogin(email, password);
       } else {
-        await handleSignup(email, password, name)
+        if (!displayName.trim()) return setErr('Ingresa tu nombre.');
+        if (!validAge()) return setErr('Edad inválida (16–80).');
+        if (!rankCat || !rank) return setErr('Selecciona tu grado.');
+
+        await handleSignup(email, password, displayName, {
+          age: Number(age),
+          rankCategory: rankCat,
+          rank,
+        });
       }
-      navigation.replace("Dashboard")
+      nav.navigate('Dashboard');
     } catch (e: any) {
-      setErr(e?.message || "Ocurrió un error. Inténtalo de nuevo.")
+      setErr(e?.message ?? 'No se pudo completar la operación.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: AZUL_EMI }]}>
-      <View style={styles.centerBox}>
-        {/* Título */}
-        <View style={styles.titleBox}>
-          <Text variant="headlineMedium" style={styles.titleWhite}>
-            Bienvenido a
-          </Text>
-          <Text variant="displaySmall" style={[styles.titleGold, { color: AMARILLO_EMI }]}>
-            EMI Fitness
-          </Text>
-        </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={styles.root}>
 
-        {/* Card de Auth */}
-        <Card style={styles.card}>
-          <Card.Content>
-            {/* Toggle Login / Registro */}
-            <View style={styles.toggle}>
-              <Button
-                mode={isLogin ? "contained" : "text"}
-                onPress={() => setIsLogin(true)}
-                buttonColor={isLogin ? AZUL_EMI : undefined}
-                textColor={isLogin ? BLANCO : "#444"}
-                style={styles.toggleBtn}
-              >
-                Iniciar Sesión
-              </Button>
-              <Button
-                mode={!isLogin ? "contained" : "text"}
-                onPress={() => setIsLogin(false)}
-                buttonColor={!isLogin ? AZUL_EMI : undefined}
-                textColor={!isLogin ? BLANCO : "#444"}
-                style={styles.toggleBtn}
-              >
-                Registrarse
-              </Button>
-            </View>
+          {/* ===== Marca: solo texto, sin fondo ===== */}
+          <Text style={styles.brandTitle}>EMI — FITNESS</Text>
 
-            {/* Nombre (solo registro) */}
-            {!isLogin && (
+          {/* ===== Card principal ===== */}
+          <Card style={styles.card}>
+            <Card.Content>
+              {/* Subtítulo dentro del Card */}
+              <Text style={styles.cardSubtitle}>
+                {mode === 'login' ? 'Inicia sesión en tu cuenta' : 'Crea tu cuenta nueva'}
+              </Text>
+
+              {/* Toggle login/registro */}
+              <View style={styles.toggle}>
+                <Button
+                  mode={mode === 'login' ? 'contained' : 'text'}
+                  style={styles.toggleBtn}
+                  onPress={() => setMode('login')}
+                >
+                  Ingresar
+                </Button>
+                <Button
+                  mode={mode === 'register' ? 'contained' : 'text'}
+                  style={styles.toggleBtn}
+                  onPress={() => setMode('register')}
+                >
+                  Registrarse
+                </Button>
+              </View>
+
+              {mode === 'register' && (
+                <TextInput
+                  mode="outlined"
+                  label="Nombre completo"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  style={styles.input}
+                />
+              )}
+
               <TextInput
-                label="Nombre completo"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
                 mode="outlined"
+                label="Correo"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
                 style={styles.input}
               />
-            )}
 
-            {/* Email */}
-            <TextInput
-              label="Correo electrónico"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              mode="outlined"
-              style={styles.input}
-            />
-
-            {/* Password con ver/ocultar */}
-            <TextInput
-              label="Contraseña"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              mode="outlined"
-              style={styles.input}
-              right={
-                <TextInput.Icon
-                  icon={() => (
-                    <MaterialCommunityIcons
-                      name={showPassword ? "eye-off" : "eye"}
-                      size={20}
-                      color="#666"
-                    />
-                  )}
-                  onPress={() => setShowPassword((v) => !v)}
-                />
-              }
-            />
-            <HelperText type={passwordTooShort ? "error" : "info"} visible>
-              {passwordTooShort ? "La contraseña mínima es de 6 caracteres." : "Autenticación con email/contraseña"}
-            </HelperText>
-
-            {err ? (
-              <HelperText type="error" visible style={{ marginTop: -6, marginBottom: 6 }}>
-                {err}
+              <TextInput
+                mode="outlined"
+                label="Contraseña"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                style={styles.input}
+                error={passwordTooShort}
+              />
+              <HelperText type="error" visible={passwordTooShort}>
+                Mínimo 6 caracteres.
               </HelperText>
-            ) : null}
 
-            <Button
-              mode="contained"
-              onPress={onSubmit}
-              loading={loading}
-              style={[styles.submit, { backgroundColor: AMARILLO_EMI }]}
-              contentStyle={{ paddingVertical: 6 }}
-            >
-              {isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
-            </Button>
+              {mode === 'register' && (
+                <>
+                  <Divider style={{ marginVertical: 8 }} />
+                  <Text variant="labelLarge">Edad</Text>
+                  <TextInput
+                    mode="outlined"
+                    placeholder="Ej. 25"
+                    keyboardType="number-pad"
+                    value={age}
+                    onChangeText={setAge}
+                    style={styles.input}
+                  />
 
-            {isLogin && (
-              <>
-                <Divider style={{ marginVertical: 12 }} />
-                <Button
-                  onPress={() => {
-                    // aquí podrías llevar a una pantalla de "ForgotPassword"
-                  }}
-                  textColor={AZUL_EMI}
-                >
-                  ¿Olvidaste tu contraseña?
-                </Button>
-              </>
-            )}
-          </Card.Content>
-        </Card>
-      </View>
-    </View>
-  )
+                  <Text variant="labelLarge">Categoría</Text>
+                  <View style={styles.pickerBox}>
+                    <Picker
+                      selectedValue={rankCat}
+                      onValueChange={(v) => { setRankCat(v); setRank(''); }}
+                      dropdownIconColor={theme.colors.onSurface}
+                    >
+                      <Picker.Item label="Selecciona..." value="" />
+                      {Object.entries(RANKS).map(([key, group]) => (
+                        <Picker.Item key={key} label={group.label} value={key} />
+                      ))}
+                    </Picker>
+                  </View>
+
+                  <Text variant="labelLarge">Grado</Text>
+                  <View style={styles.pickerBox}>
+                    <Picker
+                      enabled={!!rankCat}
+                      selectedValue={rank}
+                      onValueChange={setRank}
+                      dropdownIconColor={theme.colors.onSurface}
+                    >
+                      <Picker.Item label={rankCat ? 'Selecciona...' : 'Elige categoría primero'} value="" />
+                      {rankOptions.map((o) => (
+                        <Picker.Item key={o.value} label={o.label} value={o.value} />
+                      ))}
+                    </Picker>
+                  </View>
+                </>
+              )}
+
+              {!!err && <HelperText type="error" visible>{err}</HelperText>}
+
+              <Button
+                mode="contained"
+                style={styles.submit}
+                onPress={onSubmit}
+                loading={loading}
+                disabled={loading}
+              >
+                {mode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+              </Button>
+            </Card.Content>
+          </Card>
+
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, justifyContent: "center", alignItems: "center", padding: 16 },
-  centerBox: { width: "100%", maxWidth: 420 },
-  titleBox: { alignItems: "center", marginBottom: 16 },
-  titleWhite: { color: BLANCO, fontWeight: "700" },
-  titleGold: { fontWeight: "800" },
+const makeStyles = (theme: MD3Theme) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 16,
+      gap: 12,
+      backgroundColor: theme.colors.background, // azul
+    },
 
-  card: { borderRadius: 16, overflow: "hidden" },
-  toggle: {
-    flexDirection: "row",
-    backgroundColor: "#f1f3f5",
-    borderRadius: 10,
-    padding: 4,
-    marginBottom: 12,
-  },
-  toggleBtn: { flex: 1 },
+    // Marca: texto grande, amarillo, sin fondo
+    brandTitle: {
+      color: theme.colors.primary, // amarillo
+      fontSize: 28,                // más grande
+      fontWeight: '800',
+      letterSpacing: 0.5,
+      textAlign: 'center',
+    },
 
-  input: { marginTop: 8, backgroundColor: BLANCO },
-  submit: { marginTop: 6, borderRadius: 10 },
-})
+    // Card blanca (surface)
+    card: {
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: theme.colors.surface,
+    },
+
+    // Subtítulo dentro del card
+    cardSubtitle: {
+      color: theme.colors.onSurface,
+      opacity: 0.8,
+      fontSize: 13,
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+
+    // Toggle
+    toggle: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 10,
+      padding: 4,
+      marginVertical: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+    },
+    toggleBtn: { flex: 1, borderRadius: 8 },
+
+    input: {
+      marginTop: 8,
+      backgroundColor: theme.colors.surface,
+    },
+
+    submit: {
+      marginTop: 12,
+      borderRadius: 10,
+    },
+
+    pickerBox: {
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      borderRadius: 10,
+      overflow: 'hidden',
+      marginTop: 6,
+      marginBottom: 8,
+      backgroundColor: theme.colors.surface,
+    },
+  });
+
+export { makeStyles };

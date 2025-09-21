@@ -1,41 +1,28 @@
 // src/theme/emiTheme.ts
-import { MD3LightTheme, type MD3Theme } from "react-native-paper"
-
-export const palette = {
-  primary: "#0B4F2B",
-  primaryDark: "#07351D",
-  secondary: "#C6A431",
-  secondaryDark: "#967F22",
-  accent: "#C62828",
-  bg: "#F4F6F4",
-  surface: "#FFFFFF",
-  text: "#1A1A1A",
-  muted: "#6B7280",
-  outline: "#E2E8F0",
-}
+import { MD3LightTheme, type MD3Theme } from 'react-native-paper';
 
 export const emiColors = {
-  emiBlue: "#0052a5",
-  gold: "#e9b400",        // dorado
-  goldBright: "#e9b500",  // brillante
-  white: "#FFFFFF",
-  bg: "#F4F6FA",
-  surface: "#FFFFFF",
-  text: "#111827",
-  muted: "#6b7280",
-  surfaceVariant: "#EFF4FF",
-}
+  emiBlue: '#0052A5',   // fondo
+  gold: '#E9B400',      // amarillo card alternativa
+  white: '#FFFFFF',
+  text: '#111827',
+  outline: '#8A6D00',
+};
 
-export const emiTheme = {
+export const emiTheme: MD3Theme = {
+  ...MD3LightTheme,
+  dark: false,
   colors: {
-    primary: emiColors.emiBlue,
-    secondary: emiColors.gold,
-    secondaryBright: emiColors.goldBright,
-    background: emiColors.bg,
-    surface: emiColors.surface,
+    ...MD3LightTheme.colors,
+    background: emiColors.emiBlue, // ← fondo de pantalla
+    onBackground: emiColors.white, // texto sobre azul (si quieres negro, pon text)
+
+    surface: emiColors.white,      // ← Card por defecto: BLANCA
     onSurface: emiColors.text,
-    surfaceVariant: emiColors.surfaceVariant,
+
+    primary: emiColors.gold,       // botones contained amarillos
+    onPrimary: emiColors.text,
+
+    outline: emiColors.outline,
   },
-}
-
-
+};

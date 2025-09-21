@@ -1,38 +1,32 @@
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
-import { db } from "./firebase" // asegúrate de exportar db en tu firebase.ts
-import type { User as AppUser } from "../types"
+// src/lib/userProfile.ts
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import { db } from '@/lib/firebase';
+import type { UserProfile } from '@/types';
 
-/**
- * Crea o actualiza el documento users/{uid}.
- * - Si no existe: crea con createdAt y lastLoginAt
- * - Si existe: solo actualiza lastLoginAt y campos que cambien (merge)
- */
-export async function upsertUserProfile(firebaseUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null; isAnonymous?: boolean }) {
-  const uid = firebaseUser.uid
-  const ref = doc(db, "users", uid)
-  const snap = await getDoc(ref)
+export async function upsertUserProfile(user: User, extra?: Partial<UserProfile>) {
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
 
-  const base = {
-    displayName: firebaseUser.displayName ?? "",
-    email: firebaseUser.email ?? "",
-    photoURL: firebaseUser.photoURL ?? "",
-    isAnonymous: !!firebaseUser.isAnonymous,
-    lastLoginAt: serverTimestamp(),
-  }
-
+  const base: Partial<UserProfile> = {
+    uid: user.uid,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
+    updatedAt: Date.now(),
+  };
   if (!snap.exists()) {
-    // crear nuevo
-    await setDoc(ref, {
-      ...base,
-      createdAt: serverTimestamp(),
-      // opcionales iniciales:
-      sex: null,          // 0/1 si luego lo defines
-      birthYear: null,
-      flags: {},          // {inj_knee:false, vegan:false, ...}
-    })
-  } else {
-    // merge para no pisar otros campos
-    await setDoc(ref, base, { merge: true })
+    base.createdAt = Date.now();
   }
-  return ref.id
+  await setDoc(ref, { ...base, ...(extra ?? {}) }, { merge: true });
+}
+
+export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
+  const ref = doc(db, 'users', uid);
+  await updateDoc(ref, { ...data, updatedAt: Date.now() });
+}
+
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const ref = doc(db, 'users', uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? (snap.data() as UserProfile) : null;
 }
