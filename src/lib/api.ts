@@ -1,5 +1,6 @@
 import { auth } from '@/lib/firebase';
-import { PROCESS_URL, PROCESS_PATH } from '@/config/env';
+import { PROCESS_URL, PROCESS_PATH, PROCESS_JSON_PATH, GOALS_AUTO_PATH } from '@/config/env';
+import { GoalsAutoRequest, GoalsAutoResponse, ProcessRequestJSON, ProcessResponse } from '../types';
 
 export type CallProcessParams = {
   fileUri: string;
@@ -28,6 +29,7 @@ export interface ApiErrorShape {
   method: string;
 }
 
+/** ===== Utils ===== */
 const normalizeBaseUrl = (u?: string) => (u ?? PROCESS_URL ?? '').replace(/\/+$/, '');
 
 function withTimeout<T>(p: Promise<T>, ms = 60000) {
@@ -62,6 +64,7 @@ async function handleResponse(res: Response, url: string, method: string) {
   }
 }
 
+/** ====== IMAGEN → /process (multipart/form-data) ====== */
 export async function callProcessMultipart(params: CallProcessParams) {
   const base = normalizeBaseUrl(params.baseUrl);
   if (!base) throw new Error('PROCESS_URL no configurado');
@@ -105,6 +108,53 @@ export async function callProcessMultipart(params: CallProcessParams) {
   return await handleResponse(res, url, 'POST');
 }
 
+/** ====== MANUAL → /process/json (application/json) ====== */
+export async function callProcessManualJSON(body: ProcessRequestJSON, baseUrl?: string, pathOverride?: string) {
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base) throw new Error('PROCESS_URL no configurado');
+
+  const path = pathOverride ?? PROCESS_JSON_PATH ?? '/process/json';
+  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+
+  const token = await getIdToken();
+
+  const res = await withTimeout(fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  }), 60000);
+
+  return await handleResponse(res, url, 'POST') as ProcessResponse;
+}
+
+/** ====== Metas automáticas (Anexo A) → /goals/auto ====== */
+export async function fetchAutoGoals(req: GoalsAutoRequest, baseUrl?: string, pathOverride?: string) {
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base) throw new Error('PROCESS_URL no configurado');
+
+  const path = pathOverride ?? GOALS_AUTO_PATH ?? '/goals/auto';
+  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+
+  const token = await getIdToken();
+
+  const res = await withTimeout(fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(req),
+  }), 15000);
+
+  return await handleResponse(res, url, 'POST') as GoalsAutoResponse;
+}
+
+/** ===== ping ===== */
 export async function ping(baseUrl?: string, path: string = '/health') {
   const base = normalizeBaseUrl(baseUrl);
   if (!base) throw new Error('PROCESS_URL no configurado');

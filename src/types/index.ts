@@ -40,7 +40,7 @@ export type Constraints = {
 export type RootStackParamList = {
   Dashboard: undefined
   Upload: undefined
-  Results: { uploadId: string; predId: string; planId: string }
+  Results: { uploadId?: string; predId?: string; planId?: string; result?: any } | undefined
   PlanDetail: { planId: string }
   History: undefined
   PlanDetailPanel: { planId: string } // si de verdad lo usas
@@ -118,6 +118,55 @@ export interface ProcessPayload {
   goals: Goals
   constraints: Constraints
 }
+
+export type Sex = 'M' | 'F';
+
+export type InputMode = 'image' | 'manual';
+
+export interface ManualAnthropometry {
+  height_m: number;
+  weight_kg: number;
+}
+
+export interface GoalsManual {
+  goal_push: number;     // flexiones en 2min
+  goal_sit: number;      // abdominales en 2min
+  goal_3200_s: number;   // tiempo objetivo en segundos
+}
+
+export interface GoalsAutoRequest {
+  sex: Sex;
+  ageYears: number;
+  targetScore: number;   // 60..100
+}
+
+export interface GoalsAutoResponse extends GoalsManual {}
+
+export interface ProcessRequestJSON {
+  input_mode: 'manual';
+  sex: 0 | 1;                 // 0=female, 1=male
+  manual: ManualAnthropometry;
+  goals: GoalsManual;
+  user_id: string;
+  knee?: number; shoulder?: number; back?: number;
+  vegan?: number; lactose_free?: number; gluten_free?: number;
+}
+
+export interface ProcessResponse {
+  height_m: number;
+  weight_kg: number;
+  bmi: number;
+  class_idx: number;
+  class_name: 'desnutricion' | 'bajo_peso' | 'normal' | 'sobrepeso' | 'obesidad';
+  class_source: 'cnn' | 'bmi';
+  plan: any;
+  plan_json_path?: string;
+  result_json_path?: string;
+  uploadId: string;
+  predId: string;
+  planId: string;
+}
+
 
 
 

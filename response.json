@@ -1,0 +1,193 @@
+HTTP/1.1 200 OK
+Content-Length: 1619
+Content-Type: application/json
+Date: Mon, 22 Sep 2025 02:24:50 GMT
+Ngrok-Agent-Ips: 2800:cd0:c44:f800:69a9:7403:d940:3093
+Server: uvicorn
+
+{
+   "height_m":1.654,
+   "weight_kg":75.5,
+   "class_idx":2,
+   "class_name":"normal",
+   "plan":{
+      "nutrition":{
+         "targets_per_day":{
+            "kcal":2174,
+            "protein_g":137,
+            "fat_g":51,
+            "carbs_g":254
+         },
+         "meals_example":[
+            {
+               "title":"Salmón + camote + brócoli",
+               "kcal":720,
+               "protein_g":45,
+               "fat_g":30,
+               "carbs_g":55,
+               "tags":[
+                  "sin_gluten",
+                  "sin_lactosa"
+               ]
+            },
+            {
+               "title":"Pollo + quinoa + ensalada",
+               "kcal":700,
+               "protein_g":55,
+               "fat_g":20,
+               "carbs_g":60,
+               "tags":[
+                  "sin_gluten",
+                  "sin_lactosa"
+               ]
+            },
+            {
+               "title":"Tofu salteado + arroz",
+               "kcal":650,
+               "protein_g":35,
+               "fat_g":18,
+               "carbs_g":85,
+               "tags":[
+                  "vegano",
+                  "sin_lactosa"
+               ]
+            }
+         ]
+      },
+      "training":[
+         {
+            "day":"Lun",
+            "sessions":[
+               {
+                  "type":"run",
+                  "name":"Easy run",
+                  "minutes":65
+               },
+               {
+                  "type":"strength",
+                  "focus":"upper",
+                  "exercises":[
+                     "Flexiones",
+                     "Remo mancuerna",
+                     "Press militar"
+                  ],
+                  "pushups_sets":4
+               }
+            ]
+         },
+         {
+            "day":"Mar",
+            "sessions":[
+               {
+                  "type":"run",
+                  "name":"Intervals",
+                  "minutes":20
+               },
+               {
+                  "type":"strength",
+                  "focus":"upper",
+                  "exercises":[
+                     "Flexiones",
+                     "Remo mancuerna",
+                     "Press militar"
+                  ],
+                  "pushups_sets":4
+               }
+            ]
+         },
+         {
+            "day":"Mié",
+            "sessions":[
+               {
+                  "type":"run",
+                  "name":"Long run",
+                  "minutes":40
+               },
+               {
+                  "type":"strength",
+                  "focus":"lower",
+                  "exercises":[
+                     "Sentadilla goblet",
+                     "Zancadas",
+                     "Puente de glúteo"
+                  ]
+               }
+            ]
+         },
+         {
+            "day":"Jue",
+            "sessions":[
+               {
+                  "type":"strength",
+                  "focus":"lower",
+                  "exercises":[
+                     "Sentadilla goblet",
+                     "Zancadas",
+                     "Puente de glúteo"
+                  ]
+               }
+            ]
+         },
+         {
+            "day":"Vie",
+            "sessions":[
+               {
+                  "type":"core",
+                  "exercises":[
+                     "Plancha",
+                     "Dead bug"
+                  ],
+                  "situps_sets":4
+               }
+            ]
+         },
+         {
+            "day":"Sáb",
+            "sessions":[
+               {
+                  "type":"core",
+                  "exercises":[
+                     "Plancha",
+                     "Dead bug"
+                  ],
+                  "situps_sets":4
+               }
+            ]
+         },
+         {
+            "day":"Dom",
+            "sessions":[
+               {
+                  "type":"core",
+                  "exercises":[
+                     "Plancha",
+                     "Dead bug"
+                  ],
+                  "situps_sets":4
+               }
+            ]
+         }
+      ]
+   },
+   "uploadId":"Uys0NgDr2yN35G33SFP3",
+   "predId":"rexZT9bRBrfSWQ63ZG23",
+   "planId":"94oQaGC86AsICG2uIjrA"
+}
+
+$env:BASE_URL = "https://e604d5d58675.ngrok-free.app"
+$env:IMG = "E:\TESIS\Redes neuronales\images\datasets\datasets\Image_test\0_F_22_162560_6486371.jpg"
+
+curl.exe -i -sS --ssl-no-revoke -X POST "$env:BASE_URL/process" `
+  -H "Accept: application/json" `
+  -F "file=@""$env:IMG"";type=image/jpeg" `
+  -F "sex=0" `
+  -F "goal_3200_s=1440" `
+  -F "goal_push=45" `
+  -F "goal_sit=45" `
+  -F "user_id=postman-smoke" `
+  -F "knee=0" -F "shoulder=0" -F "back=0" `
+  -F "vegan=0" -F "lactose_free=0" -F "gluten_free=0" `
+  -o process.json
+
+
+  

@@ -15,7 +15,7 @@ import BottomActionBar from "@/components/BottomActivationBar" // <-- si tu arch
 
 // ---------- Tipos de navegación ----------
 type RootStackParamList = {
-  Results: { uploadId: string; predId: string; planId: string }
+  Results: { uploadId?: string; predId?: string; planId?: string; result?: any } | undefined
   PlanDetail: { planId: string }
 }
 
