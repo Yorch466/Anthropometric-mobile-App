@@ -8,45 +8,78 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { getCurrentUserId } from "@/hooks/auth"
+import { Linking } from "react-native"
+
 
 type Item = { icon: string; label: string; onPress: () => void }
 
 export default function BottomActionBar() {
+  
   const nav = useNavigation<any>()
 
   const handleGoRutinas = async () => {
-    try {
-      const uid = getCurrentUserId()
-      if (!uid) {
-        Alert.alert("Sesión", "Inicia sesión para ver tus rutinas.")
-        nav.navigate("Auth")
-        return
-      }
-      const q = query(
-        collection(db, "users", uid, "uploads"),
-        where("status", "==", "planned"),
-        orderBy("updatedAt", "desc"),
-        limit(1)
-      )
-      const snap = await getDocs(q)
-      if (!snap.empty) {
-        const d = snap.docs[0]
-        const v: any = d.data()
-        nav.navigate("Results", {
-          uploadId: String(d.id),
-          predId: String(v?.predId ?? ""),
-          planId: String(v?.planId ?? ""),
-        })
-      } else {
-        // si no hay ningún plan, te mando a Subir (puedes cambiar por History si prefieres)
-        Alert.alert("Aún no tienes rutinas", "Genera tu primera rutina subiendo una foto o con entrada manual.")
-        nav.navigate("Upload")
-      }
-    } catch (e) {
-      console.warn("Rutinas:", e)
-      nav.navigate("Upload")
+  try {
+    const uid = getCurrentUserId()
+    if (!uid) {
+      Alert.alert("Sesión", "Inicia sesión para ver tus rutinas.")
+      nav.navigate("Auth")
+      return
     }
+
+    // Mantener índice: where(status == planned) + orderBy(updatedAt desc)
+    const q = query(
+      collection(db, "users", uid, "uploads"),
+      where("status", "==", "planned"),
+      orderBy("updatedAt", "desc"),
+      limit(1)
+    )
+
+    const snap = await getDocs(q)
+    if (!snap.empty) {
+      const d = snap.docs[0]
+      const v: any = d.data()
+
+      const uploadId = String(d.id)
+      const predId   = String(v?.predId ?? "")
+      const planId   = String(v?.planId ?? "")
+
+      if (predId && planId) {
+        // Igual que HistoryScreen: ir directo a Results con los 3 IDs
+        nav.navigate("Results", { uploadId, predId, planId } as any)
+      } else {
+        // Si falta algo, manda al Historial para elegir uno válido
+        Alert.alert("Rutina incompleta", "No se encontró predId/planId. Revisa tu historial.")
+        nav.navigate("History")
+      }
+      return
+    }
+
+    // Si no hay ningún “planned”, guía al usuario
+    Alert.alert("Aún no tienes rutinas", "Genera tu primera rutina subiendo una foto o con entrada manual.")
+    nav.navigate("Upload")
+  } catch (e: any) {
+    // Cuando falta el índice compuesto, Firestore devuelve un error con un link '...indexes?create_composite=...'
+    const msg = String(e?.message ?? "")
+    const link = msg.match(/https:\/\/[^\s]+indexes[^\s"]+/)?.[0] // intenta extraer el enlace de creación
+
+    if (link) {
+      Alert.alert(
+        "Índice requerido",
+        "Para usar esta búsqueda, crea el índice compuesto en Firestore.",
+        [
+          { text: "Abrir enlace", onPress: () => Linking.openURL(link) },
+          { text: "OK" },
+        ]
+      )
+    } else {
+      console.warn("Rutinas:", e)
+      Alert.alert("Ups", "No se pudo obtener tu última rutina. Abre el Historial.")
+    }
+
+    nav.navigate("History")
   }
+}
+
 
   const items: Item[] = [
     { icon: "dumbbell", label: "Rutinas", onPress: handleGoRutinas },

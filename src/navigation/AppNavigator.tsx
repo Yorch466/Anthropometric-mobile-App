@@ -8,15 +8,15 @@ import { auth } from "@/lib/firebase"
 import { upsertUserProfile } from "@/lib/userProfile"
 
 // Screens
-import AuthScreen from "@/screens/AuthScreen"            // tu AuthScreen anterior (o EMIAuthScreen si prefieres)
+import AuthScreen from "@/screens/AuthScreen"
 import { DashboardScreen } from "@/screens/DashboardScreen"
 import { UploadScreen } from "@/screens/UploadScreen"
 import { ResultsScreen } from "@/screens/ResultsScreen"
 import { PlanDetailScreen } from "@/screens/PlanDetailScreen"
 import { HistoryScreen } from "@/screens/HistoryScreen"
 import PlanDetailPanel from "@/screens/PlanDetailPanel"
-// Si tienes ProfileScreen:
-import ProfileScreen from "@/screens/ProfileScreen" // si no existe, crea un stub
+import ProfileScreen from "@/screens/ProfileScreen"
+import PlanDetailPanelScreen from "@/screens/PlanDetailPanelScreen"
 
 export type RootStackParamList = {
   // App
@@ -25,7 +25,7 @@ export type RootStackParamList = {
   Results: { uploadId?: string; predId?: string; planId?: string; result?: any } | undefined
   PlanDetail: { planId: string }
   History: undefined
-  PlanDetailPanel: { planId: string }
+  PlanDetailPanel: { planId: string; class_idx?: number }
   Profile: undefined
 
   // Auth
@@ -75,15 +75,14 @@ export default function RootNavigator() {
           <Stack.Screen name="Results" component={ResultsScreen} options={{ title: "Resultados" }} />
           <Stack.Screen name="PlanDetail" component={PlanDetailScreen} options={{ title: "Plan Detallado" }} />
           <Stack.Screen name="History" component={HistoryScreen} options={{ title: "Historial" }} />
-          <Stack.Screen name="PlanDetailPanel" component={PlanDetailPanel} options={{ title: "Plan (detalle)" }} />
+          <Stack.Screen name="PlanDetailPanel" component={PlanDetailScreen} options={{ title: "Plan (detalle)" }}/>
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Perfil" }} />
         </Stack.Navigator>
       ) : (
         // ======= Auth stack (no logueado) =======
         <Stack.Navigator
           initialRouteName="Auth"
-          screenOptions={{ headerShown: false }}
-        >
+          screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Auth" component={AuthScreen} />
         </Stack.Navigator>
       )}

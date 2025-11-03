@@ -2,16 +2,18 @@
   "expo": {
     "name": "EMI-FITNESS",
     "slug": "fitness-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "anthroapp",
     "userInterfaceStyle": "light",
     "extra": {
       "PROCESS_URL": "https://isochronal-nonrevenue-evie.ngrok-free.dev",
-      "PROCESS_PATH": "/process"
+      "PROCESS_PATH": "/process",
+      "eas": {
+        "projectId": "e6446d5b-d8f4-4dd4-bb60-ce17f0c2411f"
+      }
     },
-    
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -24,10 +26,15 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "bo.emi.fitness",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -51,7 +51,13 @@ export default function AuthScreen() {
           rank,
         });
       }
-      nav.navigate('Dashboard');
+      // Solo navega si la ruta existe en el árbol actual (evita el warning/crash)
+      const state = nav.getState?.();
+      if (state?.routeNames?.includes('Dashboard')) {
+        nav.navigate('Dashboard');
+      } else {
+        console.log('Aún no está montado Dashboard; RootNavigator lo cargará solo.');
+      };
     } catch (e: any) {
       setErr(e?.message ?? 'No se pudo completar la operación.');
     } finally {
